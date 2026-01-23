@@ -19,7 +19,7 @@ Bên dưới gồm **3 sơ đồ**:
 │ - (Optional) Audio Player   │
 └───────────────┬─────────────┘
                 │ WebSocket
-                │ (audio chunks 2s)
+                │ (audio chunks 2s - 5s)
                 ▼
 ┌──────────────────────────────────────────┐
 │           LOCAL AI SERVER                 │
