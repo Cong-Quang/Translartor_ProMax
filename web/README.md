@@ -59,14 +59,22 @@ Module Web Client cho hệ thống Translator ProMax. Đây là giao diện ngư
    npm install
    ```
 5. **Code**: Thực hiện các task đã liệt kê.
-6. **Chạy thử**: `npm run dev`.
+6. **Chạy thử tự động (Recommended)**:
+   - Sử dụng file `run.bat` để tự động hóa toàn bộ quá trình.
+   - **Lợi ích**:
+     - Tự động kiểm tra và cài đặt môi trường (Node.js, Python).
+     - Tự động tạo và kích hoạt môi trường ảo Python.
+     - Tự động cài đặt dependencies cho cả Frontend và Backend.
+     - Chạy song song 2 server trong **một cửa sổ terminal** gọn gàng.
+     - Tự động mở trình duyệt.
+   - **Cách dùng**: Double click vào file `web/run.bat`.
 
 ##  Thành viên nhóm
 
 | Nhóm | Họ và Tên | MSSV | GitHub Account | Gmail |
 |:---:|:---:|:---:|:---:|:---:|
 | 2 | Lê Huỳnh Ngọc | 2380601465 | @Lehuynh-Ngoc | quoclam2278@gmail.com |
-| 2 | Nguyễn Phương Nam | 2380613311 | ... | nguyenphuongnam16112005@gmail.com |
+| 2 | Nguyễn Phương Nam | 2380613311 | @nguyenphuongnam16112005 | nguyenphuongnam16112005@gmail.com |
 | 3 | Trương Thị Yến Nhi | 2380601581 | @yennhitruong704-cloud | yennhitruong704@gmail.com |
 | 3 | Ngô Nguyễn Thu Hương | 2380600942 | @NgoNguyenThuHuong | ngo24616@gmail.com |
 
