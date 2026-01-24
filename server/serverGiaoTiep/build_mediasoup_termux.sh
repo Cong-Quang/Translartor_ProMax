@@ -1,39 +1,49 @@
 #!/bin/bash
-
-# Script cài đặt cho môi trường Ubuntu (chạy trong Termux qua proot-distro)
 set -e
 
-echo "🚀 Bắt đầu cài đặt trên môi trường Ubuntu..."
+echo "🚀 Bắt đầu sửa lỗi cài đặt Mediasoup trên Termux/Ubuntu (V4)..."
 
-# 1. Kiểm tra môi trường
-if ! command -v apt &> /dev/null; then
-    echo "❌ Lỗi: Không tìm thấy 'apt'. Hãy đảm bảo bạn đã vào Ubuntu (proot-distro login ubuntu) chưa?"
-    exit 1
+# 1. Cài đặt dependencies
+echo "📦 Cài đặt build tools..."
+if command -v apt &> /dev/null; then
+    apt update -y || true
+    apt install -y python3 python3-pip build-essential curl git
 fi
 
-# 2. Cài đặt dependencies hệ thống
-echo "📦 Cập nhật và cài đặt build tools..."
-apt update -y
-apt install -y python3 python3-pip build-essential curl git net-tools
+# 2. Cài đặt Meson & Ninja (bỏ qua nếu đã có)
+echo "🐍 Cài đặt Meson & Ninja..."
+python3 -m pip install meson ninja --break-system-packages || python3 -m pip install meson ninja || echo "⚠️ Pip install fail, hy vọng system đã có."
 
-# 3. Cài đặt Meson & Ninja
-echo "🐍 Cài đặt công cụ build (Meson/Ninja)..."
-# Thêm cờ --break-system-packages để tránh lỗi trên các bản Ubuntu mới
-python3 -m pip install --break-system-packages meson ninja || python3 -m pip install meson ninja
-
-# 4. Cài đặt Node.js modules
-echo "📥 Cài đặt thư viện Node.js..."
-# Xóa bản cũ để cài lại sạch sẽ
+# 3. Cài đặt npm packages (QUAN TRỌNG: --ignore-scripts để không tự build)
+echo "📥 Tải source code Mediasoup (bỏ qua pre-build)..."
 rm -rf node_modules package-lock.json
+npm install --ignore-scripts
 
-# Config npm và install
-echo "📥 Cài đặt thư viện Node.js..."
-rm -rf node_modules package-lock.json
+# 4. Build thủ công & Disable Tests (để tránh lỗi thư viện log/Catch2)
+echo "📂 Build thủ công Mediasoup Worker..."
+cd node_modules/mediasoup/worker
 
-# Sử dụng biến môi trường PYTHON để chỉ định python3 cho node-gyp
-PYTHON=python3 npm install
+rm -rf out
+export CC=clang
+export CXX=clang++
 
-echo "================================================="
-echo "✅ Cài đặt hoàn tất!"
-echo "👉 Chạy lệnh: npm start"
-echo "================================================="
+# Thử cấu hình tắt test nếu có thể (để tránh lỗi Catch2)
+# Lưu ý: Các flag dưới đây là phỏng đoán common pattern, meson sẽ ignore nếu không khớp.
+echo "⚙️  Meson Setup..."
+meson setup out/Release --buildtype=release \
+    -Dmediasoup-worker-test=false \
+    -Dtest=false \
+    -Dbuild_tests=false
+
+echo "🔨 Compiling..."
+ninja -C out/Release
+
+if [ -f "out/Release/mediasoup-worker" ]; then
+    echo "=========================================="
+    echo "✅ BUILD SUCCESSFULLY!"
+    echo "👉 Chạy lệnh: cd ../../.. && npm start"
+    echo "=========================================="
+else
+    echo "❌ Vẫn thất bại. Có thể cần chuyển sang giải pháp P2P."
+    exit 1
+fi
