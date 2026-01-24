@@ -26,11 +26,12 @@ echo "📥 Cài đặt thư viện Node.js..."
 # Xóa bản cũ để cài lại sạch sẽ
 rm -rf node_modules package-lock.json
 
-# Cấu hình npm để dùng python3
-npm config set python python3
+# Config npm và install
+echo "📥 Cài đặt thư viện Node.js..."
+rm -rf node_modules package-lock.json
 
-# Chạy install
-npm install
+# Sử dụng biến môi trường PYTHON để chỉ định python3 cho node-gyp
+PYTHON=python3 npm install
 
 echo "================================================="
 echo "✅ Cài đặt hoàn tất!"
