@@ -1,0 +1,72 @@
+<!-- demo thôi nhé có thể dùng nó để tham khảo vì đã có giao thức -->
+<!-- đừng quên hỏi t về dụ colab để open server AI -->
+<!--  -->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebRTC AI Test</title>
+    <style>
+        video {
+            width: 320px;
+            border: 2px solid #333;
+            margin: 10px;
+        }
+
+        #status {
+            color: blue;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>WebRTC to Colab AI</h2>
+    <div id="status">Đang chờ kết nối...</div>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <br>
+    <button id="callBtn">Bắt đầu gửi tới AI</button>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io("http://xomnhala.ddns.net:3000");
+        const localVideo = document.getElementById('localVideo');
+        let pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        // 1. Lấy camera
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                localVideo.srcObject = stream;
+                stream.getTracks().forEach(track => pc.addTrack(track, stream));
+                document.getElementById('status').innerText = "Camera sẵn sàng!";
+            });
+
+        // 2. Gửi tín hiệu
+        document.getElementById('callBtn').onclick = async () => {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('signal', { sdp: pc.localDescription });
+            document.getElementById('status').innerText = "Đã gửi Offer tới Colab...";
+        };
+
+        // 3. Xử lý Candidate
+        pc.onicecandidate = (event) => {
+            if (event.candidate) socket.emit('signal', { candidate: event.candidate });
+        };
+
+        // 4. Nhận Answer từ Colab
+        socket.on('signal', async (data) => {
+            if (data.sdp && data.sdp.type === 'answer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                document.getElementById('status').innerText = "Đã kết nối trực tiếp với Colab AI!";
+            } else if (data.candidate) {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+    </script>
+</body>
+
+</html>
