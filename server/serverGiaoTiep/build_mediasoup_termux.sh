@@ -1,58 +1,38 @@
 #!/bin/bash
 
-# Dừng script ngay nếu có lệnh lỗi
+# Script cài đặt cho môi trường Ubuntu (chạy trong Termux qua proot-distro)
 set -e
 
-echo "🚀 Bắt đầu sửa lỗi cài đặt Mediasoup trên Termux (V2)..."
+echo "🚀 Bắt đầu cài đặt trên môi trường Ubuntu..."
 
-# 1. Cập nhật Repository & Cài đặt cơ bản
-echo "🔄 Cập nhật danh sách package..."
-pkg update -y || echo "⚠️ Warning: pkg update có lỗi, nhưng sẽ cố gắng tiếp tục."
-
-echo "📦 Cài đặt Python, Clang, Make, Git..."
-pkg install -y python clang make git libandroid-support
-
-# 2. Cài đặt Meson và Ninja thông qua PIP (Do pkg không tìm thấy)
-echo "🐍 Cài đặt Meson & Ninja qua PIP..."
-python3 -m pip install --upgrade pip
-python3 -m pip install meson ninja
-
-# Đảm bảo lệnh meson/ninja tìm thấy được
-export PATH=$PATH:/data/data/com.termux/files/usr/bin
-
-echo "🔍 Kiểm tra version:"
-meson --version || echo "⚠️ Không tìm thấy meson"
-ninja --version || echo "⚠️ Không tìm thấy ninja"
-
-# 3. Cài đặt node_modules
-echo "📥 Cài đặt NPM dependencies (bỏ qua scripts)..."
-rm -rf node_modules package-lock.json
-npm install --ignore-scripts
-
-# 4. Build Mediasoup Worker thủ công
-echo "📂 Di chuyển vào thư mục worker..."
-cd node_modules/mediasoup/worker
-
-echo "🧹 Dọn dẹp..."
-rm -rf out
-
-echo "⚙️  Cấu hình Build (Meson)..."
-export CC=clang
-export CXX=clang++
-
-# Chạy setup
-meson setup out/Release --buildtype=release
-
-echo "🔨 Biên dịch (Ninja)..."
-ninja -C out/Release
-
-# 5. Kết thúc
-if [ -f "out/Release/mediasoup-worker" ]; then
-    echo "=========================================="
-    echo "✅ BUILD THÀNH CÔNG!"
-    echo "👉 Hãy chạy: cd ../../.. && npm start"
-    echo "=========================================="
-else
-    echo "❌ Build thất bại. Không thấy file output."
+# 1. Kiểm tra môi trường
+if ! command -v apt &> /dev/null; then
+    echo "❌ Lỗi: Không tìm thấy 'apt'. Hãy đảm bảo bạn đã vào Ubuntu (proot-distro login ubuntu) chưa?"
     exit 1
 fi
+
+# 2. Cài đặt dependencies hệ thống
+echo "📦 Cập nhật và cài đặt build tools..."
+apt update -y
+apt install -y python3 python3-pip build-essential curl git net-tools
+
+# 3. Cài đặt Meson & Ninja
+echo "🐍 Cài đặt công cụ build (Meson/Ninja)..."
+# Thêm cờ --break-system-packages để tránh lỗi trên các bản Ubuntu mới
+python3 -m pip install --break-system-packages meson ninja || python3 -m pip install meson ninja
+
+# 4. Cài đặt Node.js modules
+echo "📥 Cài đặt thư viện Node.js..."
+# Xóa bản cũ để cài lại sạch sẽ
+rm -rf node_modules package-lock.json
+
+# Cấu hình npm để dùng python3
+npm config set python python3
+
+# Chạy install
+npm install
+
+echo "================================================="
+echo "✅ Cài đặt hoàn tất!"
+echo "👉 Chạy lệnh: npm start"
+echo "================================================="
