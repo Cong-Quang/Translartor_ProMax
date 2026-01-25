@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './layouts/Layout';
 import { HomePage } from './pages/Home';
+import { AboutPage } from './pages/About/AboutPage';
 
 // Placeholder Pages
 const Placeholder = ({ title }: { title: string }) => (
@@ -26,9 +27,10 @@ function App() {
           <Route path="/schedule" element={<Placeholder title="Lên lịch" />} />
           <Route path="/settings" element={<Placeholder title="Cài đặt" />} />
           <Route path="/guide" element={<Placeholder title="Hướng dẫn" />} />
-          <Route path="/about" element={<Placeholder title="Giới thiệu" />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/profile" element={<Placeholder title="Thông tin người dùng" />} />
         </Route>
+
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
