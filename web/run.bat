@@ -43,14 +43,14 @@ if %errorlevel% neq 0 (
 :: 3. Setup Backend
 echo.
 echo [3/4] Setting up Backend...
-if not exist "backend\venv" (
+if not exist "..\server\backend\venv" (
     echo Creating Python virtual environment...
-    python -m venv backend\venv
+    python -m venv ..\server\backend\venv
 )
 
 echo Activate venv and install requirements...
-call backend\venv\Scripts\activate.bat
-pip install -r backend\requirements.txt
+call ..\server\backend\venv\Scripts\activate.bat
+pip install -r ..\server\backend\requirements.txt
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install backend requirements.
     pause
@@ -76,7 +76,7 @@ echo.
 :: Start Services
 echo Starting services in a single window...
 cd frontend
-call npx concurrently --kill-others --names "BACKEND,FRONTEND" --prefix-colors "blue,magenta" "cd ../backend && venv\Scripts\activate && uvicorn main:app --reload --port 8000" "npm run dev -- --open"
+call npx concurrently --kill-others --names "BACKEND,FRONTEND" --prefix-colors "blue,magenta" "cd ../../server && run_fast.bat" "npm run dev -- --open --port 3000"
 
 echo.
 echo Services stopped.
