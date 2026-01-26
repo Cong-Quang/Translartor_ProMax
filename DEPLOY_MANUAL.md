@@ -15,56 +15,39 @@ Tài liệu này hướng dẫn chi tiết cách cài đặt server Ubuntu để
 
 ---
 
-## 2. CÀI ĐẶT LẦN ĐẦU (SETUP)
-*Chỉ cần thực hiện bước này 1 lần duy nhất khi mới bắt đầu.*
+## 2. CÀI ĐẶT & CHẠY (SETUP & RUN)
 
-### Bước 1: Upload Script
-Copy 2 file script có sẵn trong dự án lên Server (dùng SCP hoặc tạo file mới):
-1.  `setup_ubuntu_selfsigned.sh` (Script cài Nginx & SSL).
-2.  `server/backend/setup_backend_ubuntu.sh` (Script cài Service Backend).
+Tôi đã tối ưu chỉ còn 2 file script. Bạn thực hiện như sau:
 
-### Bước 2: Cài đặt Backend
-1.  Upload toàn bộ thư mục `server/backend` lên server (ví dụ tại `/root/backend`).
-2.  Chạy lệnh cài đặt:
+### Bước 1: Chạy Server (Backend)
+1.  Upload thư mục `server` lên.
+2.  Chạy lệnh:
     ```bash
-    cd /root/backend
-    chmod +x setup_backend_ubuntu.sh
-    sudo ./setup_backend_ubuntu.sh
+    cd server
+    chmod +x run.sh
+    sudo ./run.sh
     ```
-    *-> Backend sẽ tự động chạy và khởi động cùng hệ thống.*
 
-### Bước 3: Cài đặt Frontend (Nginx & SSL)
-1.  Tại thư mục chứa file `setup_ubuntu_selfsigned.sh` trên server, chạy lệnh:
+### Bước 2: Chạy Web (Frontend)
+1.  Upload thư mục `web` lên (nhớ upload cả folder `dist` đã build vào trong đó, hoặc copy `dist` vào `/var/www/translartor/dist` nếu script yêu cầu).
+    *Script `web/run.sh` của tôi sẽ trỏ Nginx vào `/var/www/translartor/dist`. Hãy tạo thư mục đó và copy file vào.*
     ```bash
-    chmod +x setup_ubuntu_selfsigned.sh
-    sudo ./setup_ubuntu_selfsigned.sh
+    sudo mkdir -p /var/www/translartor/dist
+    # (Copy file từ máy bạn lên folder này)
     ```
-    *-> Nginx sẽ được cài đặt, tạo chứng chỉ SSL và cấu hình để phục vụ Web tại cổng 3000.*
+2.  Chạy lệnh:
+    ```bash
+    cd web
+    chmod +x run.sh
+    sudo ./run.sh
+    ```
 
 ---
 
-## 3. VẬN HÀNH & CẬP NHẬT (RUN & UPDATE)
-*Thực hiện các bước này mỗi khi bạn sửa code và muốn cập nhật lên server.*
+## 3. CẬP NHẬT (UPDATE)
 
-### A. Cập nhật Backend (Server)
-Khi bạn sửa code Python/API:
-1.  Copy đè các file code mới vào thư mục trên server (`/root/backend`).
-2.  Khởi động lại service để nhận code mới:
-    ```bash
-    sudo systemctl restart translartor-backend
-    ```
-    *(Muốn xem log lỗi nếu có: `sudo journalctl -u translartor-backend -f`)*
-
-### B. Cập nhật Frontend (Web)
-Khi bạn sửa code React/Giao diện:
-1.  Tại máy tính cá nhân, chạy lệnh Build:
-    ```bash
-    npm run build
-    ```
-    *(Lệnh này tạo ra thư mục `dist` chứa code đã đóng gói)*.
-2.  Upload/Copy nội dung bên trong thư mục `dist` lên server vào đường dẫn `/var/www/translartor/dist`.
-    -   Ví dụ dùng SCP: `scp -r dist/* user@xomnhala.ddns.net:/var/www/translartor/dist`
-    *-> Không cần khởi động lại gì cả, F5 trình duyệt là thấy thay đổi.*
+-   **Backend**: Copy code mới -> Chạy lại `./run.sh` ở thư mục server.
+-   **Web**: Copy file `dist` mới vào `/var/www/translartor/dist` -> Xong (không cần chạy lại script).
 
 ---
 

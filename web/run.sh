@@ -1,47 +1,65 @@
 #!/bin/bash
 
-# Translartor ProMax - Termux Launcher
-echo "=================================================="
-echo "      Translartor ProMax - Auto Launcher"
-echo "=================================================="
-echo ""
+# Web (Frontend) Run Script
+# Usage: sudo ./run.sh
 
-# 1. Check Node.js
-# 1. Check Node.js & Yarn
-echo "[1/2] Checking Node.js & Yarn..."
-if ! command -v node &> /dev/null; then
-    echo "[ERROR] Node.js is not installed."
-    echo "Please install it via: sudo apt install nodejs npm"
-    exit 1
+echo "=== STARTING WEB FRONTEND (NGINX + SSL) ==="
+
+# 1. Install Dependencies (if missing)
+if ! command -v nginx &> /dev/null; then
+    echo "Installing Nginx & OpenSSL..."
+    apt update && apt install -y nginx openssl
 fi
-if ! command -v yarn &> /dev/null; then
-    echo "[ERROR] Yarn is not installed."
-    echo "Please install it via: sudo npm install -g yarn"
-    exit 1
+
+# 2. Generate Self-Signed SSL (if missing)
+if [ ! -f "/etc/nginx/ssl/selfsigned.crt" ]; then
+    echo "Generating SSL Certificate..."
+    mkdir -p /etc/nginx/ssl
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/selfsigned.key \
+        -out /etc/nginx/ssl/selfsigned.crt \
+        -subj "/C=VN/ST=HCM/L=HCM/O=XomNhaLa/OU=IT/CN=xomnhala.ddns.net"
 fi
-echo "Node.js found: $(node -v)"
-echo "Yarn found: $(yarn -v)"
-echo ""
 
-# 2. Check Python (Skipped - Backend Remote)
+# 3. Configure Nginx
+echo "Configuring Nginx..."
+cat > /etc/nginx/sites-available/translartor <<EOF
+server {
+    listen 3000 ssl;
+    server_name xomnhala.ddns.net;
 
-# 3. Setup Frontend
-echo ""
-echo "[2/2] Setting up Frontend..."
-cd frontend
-if [ ! -d "node_modules" ]; then
-    echo "Installing Frontend dependencies..."
-    yarn install
-fi
-cd ..
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
 
-echo ""
-echo "=================================================="
-echo "      All checks passed. Starting Frontend..."
-echo "=================================================="
-echo ""
+    # Frontend (Static Files)
+    # Assumes files are in ./dist relative to this script, or upload to /var/www/translartor/dist
+    # We will map /var/www/translartor/dist
+    location / {
+        root /var/www/translartor/dist;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+    }
 
-# Start Services
-echo "Starting Frontend..."
-# Run frontend
-cd frontend && yarn dev --host --port 3000
+    # Backend API Proxy
+    location /api/ {
+        rewrite ^/api/(.*) /\$1 break;
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+    }
+}
+EOF
+
+ln -sf /etc/nginx/sites-available/translartor /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+
+# 4. Cleanup & Start
+echo "Restarting Nginx..."
+pkill -F nginx || true
+pkill -f nginx || true
+nginx
+
+echo "=== WEB FRONTEND STARTED ==="
+echo "Access at: https://xomnhala.ddns.net:3000"
