@@ -12,6 +12,10 @@ export const CONFIG = {
         WEBRTC_PORT: 9000,
         WEBRTC_PATH: "/myapp",
     },
+    SUPABASE: {
+        URL: import.meta.env.VITE_SUPABASE_URL || "",
+        KEY: import.meta.env.VITE_SUPABASE_KEY || "",
+    },
     ADMIN: {
         ID: "Admin@123",
         PASS: "12345678",

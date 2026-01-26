@@ -1,67 +1,81 @@
-
 import { Video, Users, Calendar, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useConfig } from '../context/ConfigContext';
 
 const FeatureCard = ({ icon: Icon, title, desc, to, color }: any) => (
     <Link
         to={to}
-        className="group relative p-6 rounded-2xl border border-border bg-card hover:bg-card/80 transition-none block overflow-hidden hover:border-primary/50"
+        className="group relative p-8 rounded-3xl border border-border bg-card hover:bg-card/80 transition-all block overflow-hidden hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1"
     >
-        <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-5`} />
+        <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-[0.03] group-hover:opacity-[0.06] transition-opacity`} />
         <div className="relative z-10">
-            <div className={`w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center mb-4 shadow-sm`}>
-                <Icon className="w-6 h-6 text-foreground" />
+            <div className={`w-14 h-14 rounded-2xl bg-background border border-border flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform`}>
+                <Icon className="w-7 h-7 text-primary" />
             </div>
-            <h3 className="text-lg font-bold mb-2 text-white" style={{ color: '#ffffff' }}>{title}</h3>
-            <p className="text-sm leading-relaxed text-gray-200" style={{ color: '#e5e7eb' }}>{desc}</p>
+            <h3 className="text-xl font-bold mb-3">{title}</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
         </div>
-        <div className="absolute bottom-6 right-6">
-            <ArrowRight className="w-5 h-5 text-primary" />
+        <div className="absolute bottom-8 right-8 transition-transform group-hover:translate-x-1">
+            <ArrowRight className="w-6 h-6 text-primary opacity-50 group-hover:opacity-100" />
         </div>
     </Link>
 );
 
 export const HomePage = () => {
+    const { t } = useConfig();
+
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-12">
+        <div className="p-8 max-w-7xl mx-auto space-y-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* Hero Section */}
-            <div className="text-center space-y-4 py-12">
-                <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white drop-shadow-md">
-                    Kết nối không giới hạn
+            <div className="text-center space-y-6 py-16">
+                <div className="inline-block px-4 py-1.5 mb-4 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest animate-bounce">
+                    Next Generation Meeting
+                </div>
+                <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+                    {t('heroTitle')}
                 </h1>
-                <p className="text-xl text-gray-200 max-w-2xl mx-auto font-medium">
-                    Nền tảng họp trực tuyến bảo mật, chất lượng cao với khả năng dịch thuật thời gian thực.
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-medium leading-relaxed">
+                    {t('heroDesc')}
                 </p>
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <FeatureCard
                     to="/meeting-new"
                     icon={Video}
-                    title="Cuộc họp mới"
-                    desc="Tạo phòng họp ngay lập tức và mời mọi người tham gia."
+                    title={t('newMeeting')}
+                    desc={t('newMeetingDesc')}
                     color="from-blue-500 to-cyan-500"
                 />
                 <FeatureCard
                     to="/join"
                     icon={Users}
-                    title="Tham gia"
-                    desc="Nhập mã phòng hoặc liên kết để tham gia cuộc họp đang diễn ra."
+                    title={t('join')}
+                    desc={t('joinDesc')}
                     color="from-emerald-500 to-teal-500"
                 />
                 <FeatureCard
                     to="/schedule"
                     icon={Calendar}
-                    title="Lên lịch"
-                    desc="Lên kế hoạch cho các cuộc họp trong tương lai."
+                    title={t('schedule')}
+                    desc={t('scheduleDesc')}
                     color="from-purple-500 to-pink-500"
                 />
             </div>
 
-            {/* Recent History or Stats could go here */}
+            {/* Decoration or Stats */}
+            <div className="pt-8 border-t border-border flex flex-wrap justify-center gap-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
+                <div className="flex items-center gap-2 font-bold text-xl">
+                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center">✦</div> AI TRANSLATE
+                </div>
+                <div className="flex items-center gap-2 font-bold text-xl">
+                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center">◈</div> SECURE P2P
+                </div>
+                <div className="flex items-center gap-2 font-bold text-xl">
+                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center">▣</div> ULTRA HD
+                </div>
+            </div>
         </div>
     );
 };
-
-

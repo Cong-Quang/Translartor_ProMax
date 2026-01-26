@@ -1,9 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CONFIG } from '../config';
+import { translations } from '../i18n';
+import type { Language, TranslationKeys } from '../i18n';
 
-type ThemeMode = 'light' | 'dark' | 'system' | 'blue';
-type Language = 'vi' | 'en';
+export type ThemeMode = 'light' | 'dark' | 'system' | 'blue';
 
 interface ConfigContextType {
     theme: ThemeMode;
@@ -12,14 +12,40 @@ interface ConfigContextType {
     setTheme: (theme: ThemeMode) => void;
     setLanguage: (lang: Language) => void;
     setServerUrl: (url: string) => void;
+    t: (key: TranslationKeys) => string;
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [theme, setTheme] = useState<ThemeMode>(() => (localStorage.getItem('app-theme') as ThemeMode) || 'dark');
-    const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('app-lang') as Language) || 'vi');
+    // Safely initialize state from localStorage
+    const [theme, setTheme] = useState<ThemeMode>(() => {
+        const saved = localStorage.getItem('app-theme');
+        if (saved && ['light', 'dark', 'system', 'blue'].includes(saved)) {
+            return saved as ThemeMode;
+        }
+        return 'dark';
+    });
+
+    const [language, setLanguage] = useState<Language>(() => {
+        const saved = localStorage.getItem('app-lang');
+        if (saved && (saved === 'vi' || saved === 'en')) {
+            return saved as Language;
+        }
+        return 'vi';
+    });
+
     const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('app-server-url') || CONFIG.SERVER.BASE_URL);
+
+    // Robust translation function
+    const t = (key: TranslationKeys): string => {
+        try {
+            const langData = translations[language] || translations['vi'];
+            return langData[key as keyof typeof langData] || translations['en']?.[key as keyof typeof translations['en']] || key;
+        } catch (e) {
+            return key;
+        }
+    };
 
     useEffect(() => {
         localStorage.setItem('app-theme', theme);
@@ -34,29 +60,37 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('app-server-url', serverUrl);
     }, [serverUrl]);
 
-    const applyTheme = (mode: ThemeMode) => {
-        const root = window.document.documentElement;
-        root.classList.remove('light', 'dark');
+    // Handle system theme changes
+    useEffect(() => {
+        if (theme === 'system') {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            const handleChange = () => applyTheme('system');
+            
+            applyTheme('system');
 
-        let effectiveTheme = mode;
-        if (mode === 'system') {
-            effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            mediaQuery.addEventListener('change', handleChange);
+            return () => mediaQuery.removeEventListener('change', handleChange);
         }
+    }, [theme]);
 
-        root.classList.add(effectiveTheme);
+    const applyTheme = (mode: ThemeMode) => {
+        try {
+            const root = window.document.documentElement;
+            root.classList.remove('light', 'dark', 'blue');
 
-        // Dynamic CSS variables for advanced themes could go here
-        if (mode === 'blue') {
-            root.style.setProperty('--background', CONFIG.THEMES.BLUE.colors.background);
-            root.style.setProperty('--primary', CONFIG.THEMES.BLUE.colors.primary);
-        } else {
-            root.style.removeProperty('--background');
-            root.style.removeProperty('--primary');
+            let effectiveTheme = mode;
+            if (mode === 'system') {
+                effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            root.classList.add(effectiveTheme);
+        } catch (e) {
+            console.error("Failed to apply theme:", e);
         }
     };
 
     return (
-        <ConfigContext.Provider value={{ theme, language, serverUrl, setTheme, setLanguage, setServerUrl }}>
+        <ConfigContext.Provider value={{ theme, language, serverUrl, setTheme, setLanguage, setServerUrl, t }}>
             {children}
         </ConfigContext.Provider>
     );

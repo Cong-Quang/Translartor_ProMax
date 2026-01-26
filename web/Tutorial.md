@@ -1,65 +1,60 @@
-# Hướng dẫn Phát triển Video Conference Web App
+# Hướng dẫn Thiết lập Dự án
 
-Tài liệu này chi tiết các công việc cần thực hiện để phát triển ứng dụng web dựa trên yêu cầu từ `todo.txt`.
+## 1. Yêu cầu hệ thống
+- **Node.js**: v18 trở lên.
+- **Python**: 3.10 trở lên.
+- **Tài khoản Supabase**: Đăng ký miễn phí tại [supabase.com](https://supabase.com/).
 
-## 1. Cấu trúc Dự án & Quy định Chung
+## 2. Cấu hình Database (Supabase)
+1. Tạo một dự án mới trên Supabase Dashboard.
+2. Vào mục **SQL Editor**, chọn **New Query** và dán đoạn mã sau để tạo bảng:
+   ```sql
+   create table rooms (
+     id text primary key,
+     name text not null,
+     is_private boolean default false,
+     password text,
+     enable_ai boolean default true,
+     created_at timestamp with time zone default timezone('utc'::text, now())
+   );
+   ```
+3. Lấy **Project URL** và **Anon Key** trong mục **Project Settings > API**.
 
-- **Repo**: `Translartor_ProMax` (nhánh `web`).
-- **Thư mục làm việc**: Chỉ làm việc trong thư mục `web/`.
-  - Phân chia cấu trúc: `web/frontend` và `web/backend`.
-  - **Lưu ý**: Các thư mục khác ngoài `web/` chỉ xem, không được sửa đổi.
-- **Môi trường chạy**: Local (kết nối Server sau).
-- **Công nghệ**:
-  - Ngôn ngữ: `TSX` (TypeScript React).
-  - WebRTC Libs: `Peerjs`, `simplewebrtc`.
-- **Nguyên tắc file**: Mỗi giao diện là 1 file riêng biệt.
+## 3. Cài đặt Frontend
+1. Vào thư mục `frontend`:
+   ```bash
+   cd frontend
+   ```
+2. Cài đặt thư viện:
+   ```bash
+   npm install
+   ```
+3. **Cấu hình Supabase**
+   - Mở file `frontend/src/config.ts`.
+   - Tìm mục `SUPABASE` và điền thông tin của bạn vào (hoặc sử dụng file `.env` nếu muốn bảo mật hơn):
+     ```typescript
+     SUPABASE: {
+         URL: "đường_dẫn_supabase_của_bạn",
+         KEY: "mã_key_anon_của_bạn",
+     },
+     ```
+4. Chạy ứng dụng:
+   ```bash
+   npm run dev
+   ```
 
-## 2. Cấu hình & Tài nguyên
-
-### File Cấu hình Chung (Bắt buộc)
-Cần tạo một file cấu hình trung tâm (ví dụ: `config.ts`) để quản lý toàn bộ các thông số dễ thay đổi:
-- Địa chỉ Web.
-- Icon, Logo (dùng mẫu tạm thời).
-- Màu sắc chủ đạo (Theme).
-- Tài khoản Quản trị viên (Admin).
-- Ngôn ngữ.
-- Các cấu hình quan trọng khác.
-
-### Tài khoản Admin Mặc định
-- **ID**: `Admin@123`
-- **Pass**: `12345678`
-
-### Script Tự động hóa
-Cần tạo file `.bat` để:
-1. Kiểm tra Python 3.12.
-2. Kiểm tra NPM LTS.
-3. Tự động tải về và cài đặt nếu chưa có.
-4. Chạy dự án.
-
-## 3. Danh sách Giao diện (Frontend)
-
-Yêu cầu thiết kế đầy đủ các nút bấm và liên kết chức năng.
-
-### Các Giao diện Chính
-1.  **Đăng nhập / Xác thực**
-2.  **Tạo phòng họp**
-3.  **Tham gia phòng họp (Join)**
-4.  **Kiểm tra thiết bị (Pre-join)**: Mic, Camera text.
-5.  **Phòng họp chính (Meeting Room)**
-6.  **Thanh điều khiển (Control Bar)**
-7.  **Danh sách người tham gia (Participants Panel)**
-8.  **Chat trong cuộc họp**
-9.  **Chia sẻ màn hình / Cửa sổ**
-10. **Quản lý quyền & Vai trò (Host controls)**
-11. **Ghi âm / Ghi hình (Recording)**
-12. **Lịch & Lịch sử cuộc họp**
-13. **Thông báo & Trạng thái hệ thống**
-14. **Kết thúc cuộc họp & Tổng kết (Meeting Summary)**
-
-### Các Giao diện trên Sidebar Ngang
-Chỉ bao gồm 4 mục sau:
-1.  **Cài đặt**
-2.  **Hướng dẫn**
-3.  **Giới thiệu**
-4.  **Thông tin người dùng**
-5.  **Trang chủ**
+## 4. Cài đặt Backend
+1. Vào thư mục `backend`:
+   ```bash
+   cd backend
+   ```
+2. Cài đặt môi trường ảo và thư viện:
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+3. Chạy server:
+   ```bash
+   python main.py
+   ```
