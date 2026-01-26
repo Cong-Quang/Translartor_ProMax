@@ -1,16 +1,85 @@
-import { useState } from 'react';
-import { User, Mail, MapPin, Camera, Edit3, Shield, Award, Save, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Mail, MapPin, Camera, Edit3, Shield, Award, Save, X, Loader2, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useConfig } from '../../context/ConfigContext';
+import { supabase } from '../../supabase';
 
 export const UserProfile = () => {
+    const { user } = useAuth();
+    const { t } = useConfig();
     const [isEditing, setIsEditing] = useState(false);
-    const [userData] = useState({
-        name: "Administrator",
-        role: "Hệ thống / Quản trị viên",
-        email: "admin.support@pro-max.com",
-        phone: "N/A",
-        location: "Hệ thống nội bộ",
-        bio: "Tài khoản quản trị hệ thống Translartor ProMax. Quản lý cấu hình, người dùng và giám sát hiệu năng AI."
+    const [loading, setLoading] = useState(false);
+
+    // Local state for form data
+    const [formData, setFormData] = useState({
+        full_name: '',
+        username: '',
+        website: '',
+        avatar_url: '',
     });
+
+    useEffect(() => {
+        if (user) {
+            getProfile();
+        }
+    }, [user]);
+
+    const getProfile = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('username, full_name, website, avatar_url')
+                .eq('id', user?.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                throw error;
+            }
+
+            if (data) {
+                setFormData({
+                    full_name: data.full_name || user?.user_metadata?.full_name || '',
+                    username: data.username || user?.user_metadata?.username || '',
+                    website: data.website || '',
+                    avatar_url: data.avatar_url || user?.user_metadata?.avatar_url || '',
+                });
+            }
+        } catch (error) {
+            console.error('Error loading user data!', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateProfile = async () => {
+        try {
+            setLoading(true);
+
+            const updates = {
+                id: user?.id,
+                email: user?.email, // Fix: Required for upsert if row doesn't exist
+                username: formData.username,
+                full_name: formData.full_name,
+                website: formData.website,
+                avatar_url: formData.avatar_url,
+                updated_at: new Date().toISOString(),
+            };
+
+            const { error } = await supabase.from('profiles').upsert(updates);
+
+            if (error) {
+                throw error;
+            }
+            setIsEditing(false);
+            alert(t('updateSuccess'));
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            alert('Error updating the data! Check console for details.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="max-w-5xl mx-auto pb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -30,7 +99,11 @@ export const UserProfile = () => {
                         <div className="relative group">
                             <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-tr from-blue-500 to-cyan-500 p-1 shadow-2xl rotate-3 group-hover:rotate-0 transition-transform duration-500">
                                 <div className="w-full h-full rounded-[20px] bg-secondary flex items-center justify-center overflow-hidden border-4 border-card">
-                                    <User className="w-16 h-16 text-muted-foreground" />
+                                    {formData.avatar_url ? (
+                                        <img src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User className="w-16 h-16 text-muted-foreground" />
+                                    )}
                                 </div>
                             </div>
                             <button className="absolute bottom-2 right-2 p-2 bg-primary text-primary-foreground rounded-xl shadow-lg hover:scale-110 active:scale-95 transition-all">
@@ -40,15 +113,43 @@ export const UserProfile = () => {
 
                         {/* Text Info */}
                         <div className="flex-1 text-center md:text-left space-y-2">
-                            <div className="flex flex-col md:flex-row md:items-center gap-3">
-                                <h1 className="text-3xl font-extrabold tracking-tight">{userData.name}</h1>
-                                <span className="inline-flex items-center px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-bold rounded-full border border-blue-500/20 uppercase tracking-widest">
-                                    {userData.role}
-                                </span>
-                            </div>
-                            <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1.5"><Mail className="w-4 h-4" /> {userData.email}</div>
-                                <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {userData.location}</div>
+                            {/* Form Fields or Display */}
+                            <div className="space-y-4">
+                                {isEditing ? (
+                                    <div className="grid gap-4 max-w-sm">
+                                        <div>
+                                            <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">{t('fullName')}</label>
+                                            <input
+                                                type="text"
+                                                value={formData.full_name}
+                                                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                                className="w-full bg-secondary/50 border border-input rounded-lg px-3 py-2 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">{t('username')}</label>
+                                            <input
+                                                type="text"
+                                                value={formData.username}
+                                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                                className="w-full bg-secondary/50 border border-input rounded-lg px-3 py-2 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex flex-col md:flex-row md:items-center gap-3">
+                                            <h1 className="text-3xl font-extrabold tracking-tight">{formData.full_name || 'User'}</h1>
+                                            <span className="inline-flex items-center px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-bold rounded-full border border-blue-500/20 uppercase tracking-widest">
+                                                {t('role')}: User
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-muted-foreground">
+                                            <div className="flex items-center gap-1.5"><Mail className="w-4 h-4" /> {user?.email}</div>
+                                            <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Vietnam</div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -57,15 +158,15 @@ export const UserProfile = () => {
                             {isEditing ? (
                                 <>
                                     <button onClick={() => setIsEditing(false)} className="px-5 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-sm font-bold flex items-center gap-2">
-                                        <X className="w-4 h-4" /> Hủy
+                                        <X className="w-4 h-4" /> {t('cancel')}
                                     </button>
-                                    <button onClick={() => setIsEditing(false)} className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-white/5 transition-all text-sm font-bold flex items-center gap-2">
-                                        <Save className="w-4 h-4" /> Lưu
+                                    <button onClick={updateProfile} disabled={loading} className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-white/5 transition-all text-sm font-bold flex items-center gap-2">
+                                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {t('save')}
                                     </button>
                                 </>
                             ) : (
                                 <button onClick={() => setIsEditing(true)} className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-sm font-bold flex items-center gap-2">
-                                    <Edit3 className="w-4 h-4" /> Chỉnh sửa
+                                    <Edit3 className="w-4 h-4" /> {t('editProfile')}
                                 </button>
                             )}
                         </div>
@@ -79,44 +180,27 @@ export const UserProfile = () => {
                                 <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                                     <div className="flex items-center gap-3">
                                         <Shield className="w-5 h-5 text-emerald-400" />
-                                        <span className="text-sm font-medium">Bảo mật 2 lớp</span>
+                                        <span className="text-sm font-medium">Bảo mật</span>
                                     </div>
-                                    <span className="text-xs text-emerald-400 font-bold">ĐÃ BẬT</span>
+                                    <span className="text-xs text-emerald-400 font-bold">Standard</span>
                                 </div>
                                 <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                                     <div className="flex items-center gap-3">
                                         <Award className="w-5 h-5 text-amber-400" />
-                                        <span className="text-sm font-medium">Verified User</span>
+                                        <span className="text-sm font-medium">Thành viên từ</span>
                                     </div>
-                                    <CheckCircle className="w-5 h-5 text-blue-500" />
+                                    <span className="text-xs text-muted-foreground font-bold">{new Date(user?.created_at || Date.now()).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Details */}
                         <div className="md:col-span-2 space-y-6">
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Tiểu sử</h3>
+                            {/* Static Bio for now as it's not in schema yet, or map to website field? Let's just keep static or hide */}
+                            <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t('bio')}</h3>
                             <p className="text-muted-foreground leading-relaxed italic border-l-2 border-primary/20 pl-4">
-                                "{userData.bio}"
+                                "{t('developing')}"
                             </p>
-
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground pt-4">Hoạt động gần đây</h3>
-                            <div className="relative space-y-6 before:absolute before:inset-y-0 before:left-[11px] before:w-0.5 before:bg-white/5">
-                                <div className="relative pl-8">
-                                    <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-500/20 border-4 border-card flex items-center justify-center">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground font-mono">14 giờ trước</p>
-                                    <p className="font-medium text-sm">Đã tham gia cuộc họp: "Thiết kế UI Translartor"</p>
-                                </div>
-                                <div className="relative pl-8">
-                                    <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-purple-500/20 border-4 border-card flex items-center justify-center">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground font-mono">Hôm qua</p>
-                                    <p className="font-medium text-sm">Đã cập nhật cấu hình API Server</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -124,11 +208,3 @@ export const UserProfile = () => {
         </div>
     );
 };
-
-// Helper component for simplicity
-const CheckCircle = ({ className }: { className?: string }) => (
-    <div className={className}>
-        <div className="w-5 h-5 rounded-full bg-current opacity-20 absolute" />
-        <Save className="w-3 h-3 translate-x-1 translate-y-1" />
-    </div>
-);

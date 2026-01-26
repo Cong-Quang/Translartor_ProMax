@@ -7,6 +7,9 @@ import { JoinMeeting } from './pages/Meeting/JoinMeeting';
 import { SettingsPage } from './pages/Settings/SettingsPage';
 import { UserProfile } from './pages/Profile/UserProfile';
 import { ConfigProvider } from './context/ConfigContext';
+import { AuthProvider } from './context/AuthContext';
+import { LoginPage } from './pages/Auth/Login';
+import { RegisterPage } from './pages/Auth/Register';
 
 // Placeholder Pages
 const Placeholder = ({ title }: { title: string }) => (
@@ -19,27 +22,30 @@ const Placeholder = ({ title }: { title: string }) => (
 function App() {
   return (
     <ConfigProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Auth Routes */}
-          <Route path="/login" element={<Placeholder title="Đăng nhập" />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Auth Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          {/* Main App Routes */}
-          <Route element={<Layout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/meeting-new" element={<MeetingNew />} />
-            <Route path="/join" element={<JoinMeeting />} />
-            <Route path="/schedule" element={<Placeholder title="Lên lịch" />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/guide" element={<Placeholder title="Hướng dẫn" />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/profile" element={<UserProfile />} />
-          </Route>
+            {/* Main App Routes */}
+            <Route element={<Layout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/meeting-new" element={<MeetingNew />} />
+              <Route path="/join" element={<JoinMeeting />} />
+              <Route path="/schedule" element={<Placeholder title="Lên lịch" />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/guide" element={<Placeholder title="Hướng dẫn" />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/profile" element={<UserProfile />} />
+            </Route>
 
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ConfigProvider>
   );
 }
