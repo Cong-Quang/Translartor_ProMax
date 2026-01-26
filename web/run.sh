@@ -7,13 +7,20 @@ echo "=================================================="
 echo ""
 
 # 1. Check Node.js
-echo "[1/2] Checking Node.js..."
+# 1. Check Node.js & Yarn
+echo "[1/2] Checking Node.js & Yarn..."
 if ! command -v node &> /dev/null; then
     echo "[ERROR] Node.js is not installed."
     echo "Please install it via: sudo apt install nodejs npm"
     exit 1
 fi
+if ! command -v yarn &> /dev/null; then
+    echo "[ERROR] Yarn is not installed."
+    echo "Please install it via: sudo npm install -g yarn"
+    exit 1
+fi
 echo "Node.js found: $(node -v)"
+echo "Yarn found: $(yarn -v)"
 echo ""
 
 # 2. Check Python (Skipped - Backend Remote)
@@ -24,7 +31,7 @@ echo "[2/2] Setting up Frontend..."
 cd frontend
 if [ ! -d "node_modules" ]; then
     echo "Installing Frontend dependencies..."
-    npm install
+    yarn install
 fi
 cd ..
 
@@ -37,4 +44,4 @@ echo ""
 # Start Services
 echo "Starting Frontend..."
 # Run frontend
-cd frontend && npm run dev -- --host --port 3000
+cd frontend && yarn dev --host --port 3000
