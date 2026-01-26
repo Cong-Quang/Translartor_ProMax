@@ -13,8 +13,8 @@ export const CONFIG = {
         WEBRTC_PATH: "/myapp",
     },
     SUPABASE: {
-        URL: import.meta.env.VITE_SUPABASE_URL || "",
-        KEY: import.meta.env.VITE_SUPABASE_KEY || "",
+        URL: import.meta.env.VITE_SUPABASE_URL || "https://hzsltpisskypgbrltlod.supabase.co",
+        KEY: import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_WGUaze-j9uGDslWMrLxrBg_A-9nIBJ2",
     },
     ADMIN: {
         ID: "Admin@123",
