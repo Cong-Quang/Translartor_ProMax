@@ -35,7 +35,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return 'vi';
     });
 
-    const [serverUrl, setServerUrl] = useState("http://xomnhala.ddns.net:3000");
+    const [serverUrl, setServerUrl] = useState(CONFIG.SERVER.BASE_URL);
 
     // Robust translation function
     const t = (key: TranslationKeys): string => {
