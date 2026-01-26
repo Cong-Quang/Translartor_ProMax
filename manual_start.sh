@@ -3,8 +3,18 @@
 # Translartor ProMax - Manual Start Script
 # Dùng script này nếu bạn bị lỗi "System has not been booted with systemd" (Ví dụ: Docker, WSL)
 
-APP_DIR="/root/backend"  # Đảm bảo đường dẫn này đúng với nơi bạn upload backend
+# Auto-detect APP_DIR
+if [ -d "/root/backend" ]; then
+    APP_DIR="/root/backend"
+elif [ -d "$PWD/server/backend" ]; then
+    APP_DIR="$PWD/server/backend"
+elif [ -d "/root/Translartor_ProMax/server/backend" ]; then
+    APP_DIR="/root/Translartor_ProMax/server/backend"
+else
+    APP_DIR="/root/backend" # Fallback
+fi
 
+echo "Detected Backend Dir: $APP_DIR"
 echo "=== STARTING SERVICES MANUALLY ==="
 
 # 1. Start Nginx
