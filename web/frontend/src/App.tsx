@@ -5,6 +5,8 @@ import { AboutPage } from './pages/About/AboutPage';
 import { MeetingNew } from './pages/Meeting/MeetingNew';
 import { JoinMeeting } from './pages/Meeting/JoinMeeting';
 import { SettingsPage } from './pages/Settings/SettingsPage';
+import { DeviceCheck } from './pages/Meeting/DeviceCheck';
+import { MeetingRoom } from './pages/Meeting/MeetingRoom';
 import { UserProfile } from './pages/Profile/UserProfile';
 import { ConfigProvider } from './context/ConfigContext';
 
@@ -23,6 +25,10 @@ function App() {
         <Routes>
           {/* Auth Routes */}
           <Route path="/login" element={<Placeholder title="Đăng nhập" />} />
+
+          {/* Meeting Flow Routes (No Layout) */}
+          <Route path="/check" element={<DeviceCheck />} />
+          <Route path="/room/:id" element={<MeetingRoom />} />
 
           {/* Main App Routes */}
           <Route element={<Layout />}>

@@ -59,6 +59,33 @@ export const translations = {
         supabaseMissing: "Thiếu cấu hình Supabase!",
         supabaseFix: "Bạn hãy mở file frontend/src/config.ts và điền URL/KEY vào mục SUPABASE để sử dụng tính năng này.",
 
+        // Device Check
+        checkDevice: "Kiểm tra thiết bị",
+        camera: "Máy ảnh",
+        microphone: "Micro",
+        speaker: "Loa",
+        testSpeaker: "Kiểm tra loa",
+        inputLevel: "Mức tín hiệu",
+        micOff: "Đã tắt Mic",
+        camOff: "Đã tắt Camera",
+
+        // Meeting Room
+        you: "Bạn",
+        presenting: "Đang trình bày",
+        chat: "Trò chuyện",
+        participants: "Thành viên",
+        mute: "Tắt tiếng",
+        unmute: "Bật tiếng",
+        startVideo: "Bật video",
+        stopVideo: "Tắt video",
+        shareScreen: "Chia sẻ màn hình",
+        endCall: "Kết thúc",
+        moreOptions: "Tùy chọn khác",
+        typeMessage: "Nhập tin nhắn...",
+        send: "Gửi",
+        captions: "Phụ đề (AI)",
+        waitingForOthers: "Đang đợi người khác tham gia...",
+
         // Settings
         systemSettings: "Cài đặt hệ thống",
         settingsDesc: "Tùy chỉnh trải nghiệm theo cách của bạn.",
@@ -140,6 +167,33 @@ export const translations = {
         errorOccurred: "An error occurred. Please try again.",
         supabaseMissing: "Supabase Config Missing!",
         supabaseFix: "Please open frontend/src/config.ts and fill in URL/KEY in the SUPABASE section to enable this feature.",
+
+        // Device Check
+        checkDevice: "Check Device",
+        camera: "Camera",
+        microphone: "Microphone",
+        speaker: "Speaker",
+        testSpeaker: "Test Speaker",
+        inputLevel: "Input Level",
+        micOff: "Mic Off",
+        camOff: "Camera Off",
+
+        // Meeting Room
+        you: "You",
+        presenting: "Presenting",
+        chat: "Chat",
+        participants: "Participants",
+        mute: "Mute",
+        unmute: "Unmute",
+        startVideo: "Start Video",
+        stopVideo: "Stop Video",
+        shareScreen: "Share Screen",
+        endCall: "End Call",
+        moreOptions: "More Options",
+        typeMessage: "Type a message...",
+        send: "Send",
+        captions: "Captions (AI)",
+        waitingForOthers: "Waiting for others to join...",
 
         // Settings
         systemSettings: "System Settings",

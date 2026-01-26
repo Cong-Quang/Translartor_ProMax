@@ -25,16 +25,16 @@ export const HomePage = () => {
     const { t } = useConfig();
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="p-8 max-w-7xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* Hero Section */}
-            <div className="text-center space-y-6 py-16">
-                <div className="inline-block px-4 py-1.5 mb-4 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest animate-bounce">
+            <div className="text-center space-y-4 pt-4 pb-2">
+                <div className="inline-block px-4 py-1.5 mb-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest animate-bounce">
                     Next Generation Meeting
                 </div>
-                <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
+                <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70 pb-4 leading-tight">
                     {t('heroTitle')}
                 </h1>
-                <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-medium leading-relaxed">
+                <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto font-medium leading-relaxed">
                     {t('heroDesc')}
                 </p>
             </div>
