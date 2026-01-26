@@ -6,11 +6,11 @@ export const CONFIG = {
         DESCRIPTION: "Advanced Video Conference System",
     },
     SERVER: {
-        BASE_URL: "http://xomnhala.ddns.net:3001",
-        WS_URL: "ws://xomnhala.ddns.net:3001/ws",
+        BASE_URL: "https://xomnhala.ddns.net:8000/api",
+        WS_URL: "wss://xomnhala.ddns.net:8000/api/ws",
         WEBRTC_HOST: "xomnhala.ddns.net",
-        WEBRTC_PORT: 9000,
-        WEBRTC_PATH: "/myapp",
+        WEBRTC_PORT: 8000,
+        WEBRTC_PATH: "/api/myapp",
     },
     SUPABASE: {
         URL: import.meta.env.VITE_SUPABASE_URL || "https://hzsltpisskypgbrltlod.supabase.co",
