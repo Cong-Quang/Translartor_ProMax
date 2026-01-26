@@ -5,6 +5,8 @@ import { AboutPage } from './pages/About/AboutPage';
 import { MeetingNew } from './pages/Meeting/MeetingNew';
 import { JoinMeeting } from './pages/Meeting/JoinMeeting';
 import { SettingsPage } from './pages/Settings/SettingsPage';
+import { DeviceCheck } from './pages/Meeting/DeviceCheck';
+import { MeetingRoom } from './pages/Meeting/MeetingRoom';
 import { UserProfile } from './pages/Profile/UserProfile';
 import { ConfigProvider } from './context/ConfigContext';
 import { AuthProvider } from './context/AuthContext';
@@ -29,6 +31,10 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
+            {/* Meeting Flow Routes (No Layout) */}
+            <Route path="/check" element={<DeviceCheck />} />
+            <Route path="/room/:id" element={<MeetingRoom />} />
+
             {/* Main App Routes */}
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
@@ -40,7 +46,6 @@ function App() {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/profile" element={<UserProfile />} />
             </Route>
-
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CONFIG } from '../config';
 import { translations } from '../i18n';
@@ -9,6 +10,7 @@ interface ConfigContextType {
     theme: ThemeMode;
     language: Language;
     serverUrl: string;
+    CONFIG: typeof CONFIG;
     setTheme: (theme: ThemeMode) => void;
     setLanguage: (lang: Language) => void;
     setServerUrl: (url: string) => void;
@@ -17,7 +19,7 @@ interface ConfigContextType {
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
-export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function ConfigProvider({ children }: { children: React.ReactNode }) {
     // Safely initialize state from localStorage
     const [theme, setTheme] = useState<ThemeMode>(() => {
         const saved = localStorage.getItem('app-theme');
@@ -90,14 +92,14 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     return (
-        <ConfigContext.Provider value={{ theme, language, serverUrl, setTheme, setLanguage, setServerUrl, t }}>
+        <ConfigContext.Provider value={{ theme, language, serverUrl, CONFIG, setTheme, setLanguage, setServerUrl, t }}>
             {children}
         </ConfigContext.Provider>
     );
-};
+}
 
-export const useConfig = () => {
+export function useConfig() {
     const context = useContext(ConfigContext);
     if (!context) throw new Error('useConfig must be used within a ConfigProvider');
     return context;
-};
+}

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { ManufacturerInfo } from './ManufacturerInfo';
 import { TermsOfService } from './TermsOfService';
 import { Info, ShieldCheck } from 'lucide-react';
+import { useConfig } from '../../context/ConfigContext';
 
 export const AboutPage = () => {
+    const { t } = useConfig();
     const [activeTab, setActiveTab] = useState<'info' | 'terms'>('info');
 
     return (
@@ -12,9 +14,9 @@ export const AboutPage = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-white/90 to-white/60 bg-clip-text text-transparent">
-                        Giới Thiệu
+                        {t('aboutTitle')}
                     </h1>
-                    <p className="text-muted-foreground mt-2">Tìm hiểu thêm về đội ngũ phát triển và các quy định sử dụng.</p>
+                    <p className="text-muted-foreground mt-2">{t('aboutSubtitle')}</p>
                 </div>
 
                 {/* Custom Tab Switcher */}
@@ -27,7 +29,7 @@ export const AboutPage = () => {
                             }`}
                     >
                         <Info className="w-4 h-4" />
-                        <span>Nhà sản xuất</span>
+                        <span>{t('manufacturer')}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('terms')}
@@ -37,7 +39,7 @@ export const AboutPage = () => {
                             }`}
                     >
                         <ShieldCheck className="w-4 h-4" />
-                        <span>Điều khoản</span>
+                        <span>{t('terms')}</span>
                     </button>
                 </div>
             </div>
@@ -53,7 +55,7 @@ export const AboutPage = () => {
 
             {/* Footer decoration */}
             <div className="mt-20 flex justify-center opacity-20 pointer-events-none">
-                <div className="text-6xl font-black tracking-tighter select-none">TRANSLARTOR PROMAX</div>
+                <div className="text-6xl font-black tracking-tighter select-none uppercase">Translartor ProMax</div>
             </div>
         </div>
     );

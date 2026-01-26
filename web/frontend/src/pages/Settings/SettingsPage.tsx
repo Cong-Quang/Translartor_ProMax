@@ -26,41 +26,41 @@ export const SettingsPage = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
                 {/* Sidebar Tabs */}
-                <div className="w-full md:w-64 space-y-1">
+                <div className="w-full md:w-56 space-y-1 shrink-0">
                     <button
                         onClick={() => setActiveTab('general')}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'general' ? 'bg-primary text-primary-foreground shadow-lg' : 'hover:bg-muted text-muted-foreground'}`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${activeTab === 'general' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'hover:bg-muted text-muted-foreground'}`}
                     >
                         <Globe className="w-4 h-4" />
-                        <span className="font-medium">{t('general')}</span>
+                        <span className="font-semibold text-sm">{t('general')}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('appearance')}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'appearance' ? 'bg-primary text-primary-foreground shadow-lg' : 'hover:bg-muted text-muted-foreground'}`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${activeTab === 'appearance' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'hover:bg-muted text-muted-foreground'}`}
                     >
                         <Palette className="w-4 h-4" />
-                        <span className="font-medium">{t('appearance')}</span>
+                        <span className="font-semibold text-sm">{t('appearance')}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('network')}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'network' ? 'bg-primary text-primary-foreground shadow-lg' : 'hover:bg-muted text-muted-foreground'}`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${activeTab === 'network' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'hover:bg-muted text-muted-foreground'}`}
                     >
                         <Server className="w-4 h-4" />
-                        <span className="font-medium">{t('network')}</span>
+                        <span className="font-semibold text-sm">{t('network')}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('admin')}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'admin' ? 'bg-primary text-primary-foreground shadow-lg' : 'hover:bg-muted text-muted-foreground'}`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${activeTab === 'admin' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'hover:bg-muted text-muted-foreground'}`}
                     >
                         <ShieldCheck className="w-4 h-4" />
-                        <span className="font-medium">{t('admin')}</span>
+                        <span className="font-semibold text-sm">{t('admin')}</span>
                     </button>
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-card rounded-3xl border border-border p-8 min-h-[400px] shadow-sm">
+                <div className="flex-1 w-full bg-card rounded-3xl border border-border p-6 shadow-sm min-h-0">
                     {activeTab === 'general' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
                             <h3 className="text-xl font-bold mb-4">{t('displayLanguage')}</h3>
