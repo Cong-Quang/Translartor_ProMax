@@ -5,8 +5,8 @@
 # USE THIS IF YOU CANNOT OPEN PORT 80
 
 DOMAIN="xomnhala.ddns.net"
-HTTPS_PORT="8000"
-FRONTEND_PORT="3000"
+HTTPS_PORT="3000"
+FRONTEND_PORT="3000" # Not used for proxying anymore since we serve static, but good to keep var
 BACKEND_PORT="3001"
 
 echo "=== Starting Setup for $DOMAIN (Self-Signed SSL) ==="

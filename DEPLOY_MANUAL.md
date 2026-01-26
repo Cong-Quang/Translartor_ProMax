@@ -72,14 +72,14 @@ Khi bạn sửa code React/Giao diện:
 Để đăng nhập được, bạn phải cập nhật **Supabase Dashboard**:
 
 1.  Vào **Authentication** > **URL Configuration**.
-2.  **Site URL**: `https://xomnhala.ddns.net:8000`
-3.  **Redirect URLs**: Thêm dòng `https://xomnhala.ddns.net:8000/**`
+2.  **Site URL**: `https://xomnhala.ddns.net:3000`
+3.  **Redirect URLs**: Thêm dòng `https://xomnhala.ddns.net:3000/**`
 
 ---
 
 ## 5. TRUY CẬP WEBSITE
 
--   Địa chỉ: **https://xomnhala.ddns.net:8000**
+-   Địa chỉ: **https://xomnhala.ddns.net:3000**
 -   **Lưu ý:** Vì dùng chứng chỉ tự ký (Self-Signed), trình duyệt sẽ hiện cảnh báo đỏ "Not Secure".
     -   Bạn cần bấm **Advanced (Nâng cao)** -> **Proceed to... (Tiếp tục truy cập)**.
     -   Sau đó Camera và Micro sẽ hoạt động bình thường.

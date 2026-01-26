@@ -6,10 +6,10 @@ export const CONFIG = {
         DESCRIPTION: "Advanced Video Conference System",
     },
     SERVER: {
-        BASE_URL: "https://xomnhala.ddns.net:8000/api",
-        WS_URL: "wss://xomnhala.ddns.net:8000/api/ws",
+        BASE_URL: "https://xomnhala.ddns.net:3000/api",
+        WS_URL: "wss://xomnhala.ddns.net:3000/api/ws",
         WEBRTC_HOST: "xomnhala.ddns.net",
-        WEBRTC_PORT: 8000,
+        WEBRTC_PORT: 3000,
         WEBRTC_PATH: "/api/myapp",
     },
     SUPABASE: {
