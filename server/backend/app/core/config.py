@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # CORS Configuration
     BACKEND_CORS_ORIGINS: list[str] = ["*"]  # In production, specific origins should be allowed
 
+    # AI Worker Configuration
+    AI_WORKER_KEY: str = "change_this_to_a_secure_key"
+
     class Config:
         case_sensitive = True
 
