@@ -83,3 +83,15 @@ Khi bạn sửa code React/Giao diện:
 -   **Lưu ý:** Vì dùng chứng chỉ tự ký (Self-Signed), trình duyệt sẽ hiện cảnh báo đỏ "Not Secure".
     -   Bạn cần bấm **Advanced (Nâng cao)** -> **Proceed to... (Tiếp tục truy cập)**.
     -   Sau đó Camera và Micro sẽ hoạt động bình thường.
+
+---
+
+## 6. KHẮC PHỤC SỰ CỐ (TROUBLESHOOTING)
+
+### Lỗi "System has not been booted with systemd"
+Nếu bạn chạy script cài đặt mà gặp lỗi này (thường do dùng Docker hoặc WSL), hãy dùng **Script chạy thủ công** thay vì các script setup tự động.
+
+1.  Copy file `manual_start.sh` lên server.
+2.  Chạy: `chmod +x manual_start.sh && ./manual_start.sh`.
+    -   Nó sẽ bật Nginx và Backend lên ngay lập tức mà không cần Systemd.
+
