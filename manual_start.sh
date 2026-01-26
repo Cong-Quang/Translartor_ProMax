@@ -4,14 +4,18 @@
 # Dùng script này nếu bạn bị lỗi "System has not been booted with systemd" (Ví dụ: Docker, WSL)
 
 # Auto-detect APP_DIR
-if [ -d "/root/backend" ]; then
+# 1. Check if we are inside the project root (e.g. ~/Translartor_ProMax)
+if [ -d "./server/backend" ]; then
+    APP_DIR="$(pwd)/server/backend"
+# 2. Check standard /root/backend
+elif [ -d "/root/backend" ]; then
     APP_DIR="/root/backend"
-elif [ -d "$PWD/server/backend" ]; then
-    APP_DIR="$PWD/server/backend"
+# 3. Check full path assumption
 elif [ -d "/root/Translartor_ProMax/server/backend" ]; then
     APP_DIR="/root/Translartor_ProMax/server/backend"
 else
-    APP_DIR="/root/backend" # Fallback
+    # Fallback, but print warning
+    APP_DIR="/root/backend"
 fi
 
 echo "Detected Backend Dir: $APP_DIR"
