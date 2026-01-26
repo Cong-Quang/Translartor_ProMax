@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MessageSquare, Users, MoreVertical, Send, Captions, Volume2, VolumeX, UserMinus, Signal } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MessageSquare, Users, MoreVertical, Send, Volume2, VolumeX, UserMinus, Signal } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 
@@ -8,15 +8,15 @@ export const MeetingRoom = () => {
     const { t, CONFIG } = useConfig();
     const navigate = useNavigate();
     const { id: roomId } = useParams();
-    
+
     const socketRef = useRef<WebSocket | null>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
     // Meeting States
     const [meetingTime, setMeetingTime] = useState(0);
-    const [isHost] = useState(true); 
-    
+    const [isHost] = useState(true);
+
     // UI States
     const [isMicOn, setIsMicOn] = useState(true);
     const [isCamOn, setIsCamOn] = useState(true);
@@ -73,8 +73,8 @@ export const MeetingRoom = () => {
         const socket = new WebSocket(wsUrl);
         socketRef.current = socket;
         socket.onopen = () => {
-            setMessages(prev => [...prev, { 
-                sender: 'System', text: t('welcomeMeeting'), 
+            setMessages(prev => [...prev, {
+                sender: 'System', text: t('welcomeMeeting'),
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
             }]);
         };
@@ -109,7 +109,7 @@ export const MeetingRoom = () => {
     return (
         <div className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans">
             <div className="flex-1 flex flex-col min-w-0 relative h-full">
-                
+
                 {/* Header */}
                 <div className="absolute top-4 left-6 z-20 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/5 shadow-2xl">
                     <div className="flex items-center gap-2">
