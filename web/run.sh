@@ -11,6 +11,39 @@ if ! command -v nginx &> /dev/null; then
     apt update && apt install -y nginx openssl
 fi
 
+# 1.5. Build & Deploy Frontend (Auto-fix for 500 Error)
+echo "Checking Web Content..."
+TARGET_DIR="/var/www/translartor/dist"
+SOURCE_DIR="$(dirname "$0")/frontend" # Assumes run.sh is in web/ folder
+
+if [ ! -f "$TARGET_DIR/index.html" ]; then
+    echo "Web content missing. Attempting to build..."
+    
+    # Check/Install Node.js
+    if ! command -v npm &> /dev/null; then
+        echo "Installing Node.js & NPM..."
+        apt update && apt install -y nodejs npm
+    fi
+
+    # Build
+    if [ -d "$SOURCE_DIR" ]; then
+        echo "Building Frontend from $SOURCE_DIR..."
+        cd "$SOURCE_DIR"
+        npm install
+        npm run build
+        
+        # Deploy
+        echo "Deploying to $TARGET_DIR..."
+        mkdir -p "$TARGET_DIR"
+        cp -r dist/* "$TARGET_DIR"
+    else
+        echo "ERROR: Cannot find source code in $SOURCE_DIR"
+        echo "Please verify you uploaded the 'frontend' folder inside 'web'."
+    fi
+else
+    echo "Web content found in $TARGET_DIR."
+fi
+
 # 2. Generate Self-Signed SSL (if missing)
 if [ ! -f "/etc/nginx/ssl/selfsigned.crt" ]; then
     echo "Generating SSL Certificate..."
