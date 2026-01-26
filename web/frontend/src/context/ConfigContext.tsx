@@ -35,18 +35,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return 'vi';
     });
 
-    const [serverUrl, setServerUrl] = useState(() => {
-        const saved = localStorage.getItem('app-server-url');
-        const currentHost = window.location.hostname;
-        
-        // If saved URL is localhost but we are not on localhost (e.g. production), ignore/clear it
-        if (saved && (saved.includes('localhost') || saved.includes('127.0.0.1')) && 
-            currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
-            return CONFIG.SERVER.BASE_URL;
-        }
-        
-        return saved || CONFIG.SERVER.BASE_URL;
-    });
+    const [serverUrl, setServerUrl] = useState("http://xomnhala.ddns.net:3000");
 
     // Robust translation function
     const t = (key: TranslationKeys): string => {
@@ -76,7 +65,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (theme === 'system') {
             const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
             const handleChange = () => applyTheme('system');
-            
+
             applyTheme('system');
 
             mediaQuery.addEventListener('change', handleChange);
