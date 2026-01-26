@@ -74,11 +74,6 @@ export const MeetingRoom = () => {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 setLocalStream(stream);
                 localStreamRef.current = stream;
-
-                // Apply initial state
-                stream.getVideoTracks().forEach(t => t.enabled = isCamOn);
-                stream.getAudioTracks().forEach(t => t.enabled = isMicOn);
-
             } catch (err) {
                 console.error("Error accessing media:", err);
                 // Handle error (maybe request permissions again or show alert)
@@ -91,32 +86,83 @@ export const MeetingRoom = () => {
             if (localStreamRef.current) {
                 localStreamRef.current.getTracks().forEach(track => {
                     track.stop();
-                    track.enabled = false;
                 });
             }
         };
     }, []);
 
-    // Toggle Media Tracks
-    useEffect(() => {
-        if (localStreamRef.current) {
-            localStreamRef.current.getVideoTracks().forEach(t => t.enabled = isCamOn);
-            // Notify others
-            socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'cam', value: isCamOn }));
-        }
-    }, [isCamOn]);
+    // Toggle Camera (Hardware Stop/Start)
+    const toggleCam = async () => {
+        if (!localStream) return;
+        const newStatus = !isCamOn;
+        setIsCamOn(newStatus);
 
-    useEffect(() => {
-        if (localStreamRef.current) {
-            localStreamRef.current.getAudioTracks().forEach(t => t.enabled = isMicOn);
-            // Notify others
-            socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'mic', value: isMicOn }));
+        const videoTrack = localStream.getVideoTracks()[0];
+
+        if (newStatus) {
+            // Turn ON: If track is missing or stopped, re-acquire
+            if (!videoTrack || videoTrack.readyState === 'ended') {
+                try {
+                    const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    const newVideoTrack = newStream.getVideoTracks()[0];
+
+                    // Replace track in local stream
+                    if (videoTrack) {
+                        localStream.removeTrack(videoTrack);
+                    }
+                    localStream.addTrack(newVideoTrack);
+
+                    // Replace track in peer connections
+                    Object.values(peersRef.current).forEach((call: any) => {
+                        const sender = call.peerConnection.getSenders().find((s: any) => s.track?.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(newVideoTrack);
+                        }
+                    });
+                } catch (e) {
+                    console.error("Failed to restart video", e);
+                    setIsCamOn(false); // Revert if failed
+                    return;
+                }
+            } else {
+                videoTrack.enabled = true;
+            }
+        } else {
+            // Turn OFF: Stop the track to kill light
+            if (videoTrack) {
+                videoTrack.stop();
+                // We also need to keep the track entry but marked as stopped or just remove it? 
+                // PeerJS might need a track to negotiate. 
+                // Better approach for smooth UX: keep enabled=false for quick toggle, 
+                // BUT user specifically asked for light off.
+                // Stop is the only way to kill light.
+
+                // IMPORTANT: PeerJS might drop connection if track is stopped.
+                // Alternative: send black frame? No, light still on.
+                // We will rely on re-negotiation or replaceTrack.
+            }
         }
-    }, [isMicOn]);
+
+        socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'cam', value: newStatus }));
+    };
+
+    // Toggle Mic (Mute/Unmute)
+    const toggleMic = () => {
+        if (!localStream) return;
+        const newStatus = !isMicOn;
+        setIsMicOn(newStatus);
+
+        localStream.getAudioTracks().forEach(t => t.enabled = newStatus);
+        socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'mic', value: newStatus }));
+    };
 
     // WebSocket & PeerJS Setup
     useEffect(() => {
         if (!CONFIG?.SERVER?.WS_URL || !roomId || !localStream) return;
+
+        // Cleanup previous if exists
+        if (peerRef.current) peerRef.current.destroy();
+        if (socketRef.current) socketRef.current.close();
 
         // 1. Setup PeerJS
         // Use local user ID as Peer ID for simplicity
@@ -137,6 +183,12 @@ export const MeetingRoom = () => {
             call.on('stream', (remoteStream) => {
                 handleRemoteStream(call.peer, remoteStream);
             });
+
+            peersRef.current[call.peer] = call;
+        });
+
+        peer.on('error', (err) => {
+            console.error("PeerJS Error:", err);
         });
 
         const connectWebSocket = () => {
@@ -164,8 +216,12 @@ export const MeetingRoom = () => {
         const handleWebSocketMessage = (data: any) => {
             switch (data.type) {
                 case 'user-joined':
-                    // User joined, call them!
+                    // User joined, call them ONLY if we are the older participant?
+                    // Actually PeerJS mesh usually implies everyone calls everyone or newcomer calls everyone.
+                    // The server sends 'user-joined' to everyone currently in room EXCEPT the new user.
+                    // So WE are the old user, and WE should call the NEW user (data.user_id).
                     if (data.user_id !== myId) {
+                        console.log("Calling new user:", data.user_id);
                         const call = peerRef.current?.call(data.user_id, localStream);
                         if (call) {
                             peersRef.current[data.user_id] = call;
@@ -309,8 +365,8 @@ export const MeetingRoom = () => {
                 <div className="absolute bottom-0 left-0 right-0 h-24 flex items-center justify-center px-8 z-30 pointer-events-none">
                     <div className="bg-[#121212]/90 backdrop-blur-3xl border border-white/10 px-8 py-4 rounded-3xl flex items-center gap-6 shadow-2xl mb-4 pointer-events-auto">
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setIsMicOn(!isMicOn)} className={`p-4 rounded-2xl transition-all ${isMicOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isMicOn ? t('mute') : t('unmute')}><Mic className="w-5 h-5" /></button>
-                            <button onClick={() => setIsCamOn(!isCamOn)} className={`p-4 rounded-2xl transition-all ${isCamOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isCamOn ? t('stopVideo') : t('startVideo')}><Video className="w-5 h-5" /></button>
+                            <button onClick={toggleMic} className={`p-4 rounded-2xl transition-all ${isMicOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isMicOn ? t('mute') : t('unmute')}><Mic className="w-5 h-5" /></button>
+                            <button onClick={toggleCam} className={`p-4 rounded-2xl transition-all ${isCamOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isCamOn ? t('stopVideo') : t('startVideo')}><Video className="w-5 h-5" /></button>
                         </div>
                         <div className="w-[1px] h-8 bg-white/10" />
                         <button onClick={() => navigate('/')} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl transition-all flex items-center gap-3 shadow-lg shadow-red-500/20"><PhoneOff className="w-5 h-5" /><span className="font-bold text-sm uppercase tracking-wider">{t('leave')}</span></button>

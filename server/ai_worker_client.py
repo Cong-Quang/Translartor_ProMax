@@ -55,9 +55,20 @@ async def ai_worker():
 
 # Run the worker
 if __name__ == "__main__":
-    # Install websockets if running in Colab: !pip install websockets
+    # Install websockets if running in Colab: !pip install websockets nest_asyncio
     print("Starting AI Worker...")
     try:
         asyncio.run(ai_worker())
+    except RuntimeError as e:
+        if "running event loop" in str(e):
+            # Fallback for Colab/Jupyter which has a running loop
+            print("⚠️ Detected running event loop (Colab/Jupyter). Applying nest_asyncio fix...")
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+                asyncio.run(ai_worker())
+            except ImportError:
+                print("❌ Missing 'nest_asyncio'. Please run: !pip install nest_asyncio")
+                print("OR simply run this instead: await ai_worker()")
     except KeyboardInterrupt:
         print("Stopped.")

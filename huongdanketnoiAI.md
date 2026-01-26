@@ -16,9 +16,9 @@ Truy cập [Google Colab](https://colab.research.google.com/) và tạo một No
 *   Chọn **T4 GPU** (để xử lý AI nhanh hơn).
 
 **Bước 3: Cài đặt thư viện cần thiết**
-Chạy cell đầu tiên với lệnh sau để cài đặt thư viện kết nối WebSocket:
+Chạy cell đầu tiên với lệnh sau để cài đặt thư viện kết nối WebSocket và fix lỗi async trên Colab:
 ```python
-!pip install websockets
+!pip install websockets nest_asyncio
 ```
 
 **Bước 4: Chạy mã nguồn AI Worker**
