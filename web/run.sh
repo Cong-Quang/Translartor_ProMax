@@ -19,18 +19,23 @@ SOURCE_DIR="$(dirname "$0")/frontend" # Assumes run.sh is in web/ folder
 if [ ! -f "$TARGET_DIR/index.html" ]; then
     echo "Web content missing. Attempting to build..."
     
-    # Check/Install Node.js
-    if ! command -v npm &> /dev/null; then
-        echo "Installing Node.js & NPM..."
+    # Check/Install Node.js & Yarn
+    if ! command -v node &> /dev/null; then
+        echo "Installing Node.js..."
         apt update && apt install -y nodejs npm
+    fi
+    
+    if ! command -v yarn &> /dev/null; then
+        echo "Installing Yarn..."
+        npm install -g yarn
     fi
 
     # Build
     if [ -d "$SOURCE_DIR" ]; then
         echo "Building Frontend from $SOURCE_DIR..."
         cd "$SOURCE_DIR"
-        npm install
-        npm run build
+        yarn install
+        yarn build
         
         # Deploy
         echo "Deploying to $TARGET_DIR..."
