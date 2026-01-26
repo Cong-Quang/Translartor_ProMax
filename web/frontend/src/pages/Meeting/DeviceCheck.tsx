@@ -97,7 +97,11 @@ export const DeviceCheck = () => {
     };
 
     const handleJoin = () => {
-        navigate(`/room/${roomId || 'demo'}`);
+        if (!roomId) {
+            alert("Mã phòng không hợp lệ!");
+            return;
+        }
+        navigate(`/room/${roomId}`);
     };
 
     return (

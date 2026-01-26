@@ -1,83 +1,52 @@
 @echo off
 setlocal
-title Translartor ProMax Launcher
+title Translartor ProMax - Unified Launcher
 
 echo ==================================================
-echo      Translartor ProMax - Auto Launcher
+echo      Translartor ProMax - Environment Check
 echo ==================================================
 echo.
 
-:: 1. Check Node.js
-echo [1/4] Checking Node.js...
+:: 1. Kiem tra Node.js
+echo [1/3] Dang kiem tra Node.js...
 node -v >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js is not installed or not in PATH.
-    echo Please install Node.js LTS from https://nodejs.org/
+    echo [LOI] Khong tim thay Node.js! 
+    echo Vui long tai va cai dat tai: https://nodejs.org/
     pause
     exit /b 1
 )
 node -v
-echo Node.js found.
+echo [OK] Node.js da san sang.
 
-:: 2. Check Python 3.12
+:: 2. Kiem tra Python
 echo.
-echo [2/4] Checking Python 3.12...
+echo [2/3] Dang kiem tra Python...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python is not installed or not in PATH.
-    echo Please install Python 3.12 from https://www.python.org/
-    echo Opening download page...
-    start https://www.python.org/downloads/
+    echo [LOI] Khong tim thay Python!
+    echo Vui long cai dat Python va tick vao "Add Python to PATH".
     pause
     exit /b 1
 )
-for /f "tokens=2 delims= " %%I in ('python --version') do set PYTHON_VER=%%I
-echo Python version identified: %PYTHON_VER%
-:: Simple check if starts with 3.12 (optional, strict check can be complex in batch)
-echo %PYTHON_VER% | findstr /b "3.12" >nul
-if %errorlevel% neq 0 (
-    echo [WARNING] Python version is %PYTHON_VER%, but 3.12 was recommended.
-    echo Proceeding anyway...
-)
+python --version
+echo [OK] Python da san sang.
 
-:: 3. Setup Backend
+:: 3. Don dep cong
 echo.
-echo [3/4] Setting up Backend...
-if not exist "..\server\backend\venv" (
-    echo Creating Python virtual environment...
-    python -m venv ..\server\backend\venv
-)
-
-echo Activate venv and install requirements...
-call ..\server\backend\venv\Scripts\activate.bat
-pip install -r ..\server\backend\requirements.txt
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to install backend requirements.
-    pause
-    exit /b 1
-)
-
-:: 4. Setup Frontend
-echo.
-echo [4/4] Setting up Frontend...
-if not exist "frontend\node_modules" (
-    echo Installing Frontend dependencies...
-    cd frontend
-    call npm install
-    cd ..
-)
+echo [3/3] Dang don dep cong 3000, 3001...
+powershell -Command "Get-NetTCPConnection -LocalPort 3000, 3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+echo [OK] Cac cong da duoc giai phong.
 
 echo.
 echo ==================================================
-echo      All checks passed. Starting Services...
+echo      Moi truong hop le. Dang khoi chay...
 echo ==================================================
 echo.
 
-:: Start Services
-echo Starting services in a single window...
-cd frontend
-call npx concurrently --kill-others --names "BACKEND,FRONTEND" --prefix-colors "blue,magenta" "cd ../../server && run_fast.bat" "npm run dev -- --open --port 3000"
+:: Chay launcher bang Node.js
+node launcher.js
 
 echo.
-echo Services stopped.
+echo [INFO] He thong da dung.
 pause

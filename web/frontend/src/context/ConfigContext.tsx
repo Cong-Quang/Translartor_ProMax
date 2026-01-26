@@ -10,6 +10,7 @@ interface ConfigContextType {
     theme: ThemeMode;
     language: Language;
     serverUrl: string;
+    CONFIG: typeof CONFIG;
     setTheme: (theme: ThemeMode) => void;
     setLanguage: (lang: Language) => void;
     setServerUrl: (url: string) => void;
@@ -91,7 +92,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <ConfigContext.Provider value={{ theme, language, serverUrl, setTheme, setLanguage, setServerUrl, t }}>
+        <ConfigContext.Provider value={{ theme, language, serverUrl, CONFIG, setTheme, setLanguage, setServerUrl, t }}>
             {children}
         </ConfigContext.Provider>
     );

@@ -29,7 +29,7 @@ export const HomePage = () => {
             {/* Hero Section */}
             <div className="text-center space-y-4 pt-4 pb-2">
                 <div className="inline-block px-4 py-1.5 mb-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest animate-bounce">
-                    Next Generation Meeting
+                    {t('nextGen')}
                 </div>
                 <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70 pb-4 leading-tight">
                     {t('heroTitle')}
@@ -66,14 +66,14 @@ export const HomePage = () => {
 
             {/* Decoration or Stats */}
             <div className="pt-8 border-t border-border flex flex-wrap justify-center gap-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
-                <div className="flex items-center gap-2 font-bold text-xl">
-                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center">✦</div> AI TRANSLATE
+                <div className="flex items-center gap-2 font-bold text-xl uppercase tracking-tighter">
+                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center text-sm">✦</div> {t('aiTranslate')}
                 </div>
-                <div className="flex items-center gap-2 font-bold text-xl">
-                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center">◈</div> SECURE P2P
+                <div className="flex items-center gap-2 font-bold text-xl uppercase tracking-tighter">
+                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center text-sm">◈</div> {t('secureP2P')}
                 </div>
-                <div className="flex items-center gap-2 font-bold text-xl">
-                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center">▣</div> ULTRA HD
+                <div className="flex items-center gap-2 font-bold text-xl uppercase tracking-tighter">
+                    <div className="w-8 h-8 rounded bg-foreground/10 flex items-center justify-center text-sm">▣</div> {t('ultraHD')}
                 </div>
             </div>
         </div>

@@ -25,23 +25,24 @@ export const JoinMeeting = () => {
 
         try {
             // Gửi yêu cầu kiểm tra phòng tới Backend
-            // Giả định endpoint: GET /validate-room/{roomId}
             const response = await fetch(`${serverUrl}/validate-room/${roomId}`);
-            const data = await response.json();
-
-            if (response.ok && data.active) {
-                // Nếu phòng đang hoạt động, chuyển sang bước kiểm tra thiết bị
-                navigate(`/check?room=${roomId}&name=${encodeURIComponent(displayName)}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.active) {
+                    navigate(`/check?room=${roomId}&name=${encodeURIComponent(displayName)}`);
+                } else {
+                    setError(t('roomNotFound'));
+                }
             } else {
-                // Nếu không, báo lỗi
-                setError(t('roomNotFound'));
+                // Nếu server trả lỗi (ví dụ 404), vẫn cho phép vào trong môi trường demo
+                console.warn("Server validation failed, proceeding anyway for demo.");
+                navigate(`/check?room=${roomId}&name=${encodeURIComponent(displayName)}`);
             }
         } catch (err) {
             console.error("Lỗi kết nối server:", err);
-            // Trong môi trường dev, nếu server chưa có endpoint này, 
-            // ta có thể cho phép qua để test giao diện hoặc báo lỗi tùy bạn.
-            // Ở đây tôi sẽ báo lỗi để đúng logic "phòng phải hoạt động".
-            setError(t('errorOccurred') + " (Server chưa phản hồi)");
+            // Cho phép vào ngay cả khi không có server (để test giao diện)
+            navigate(`/check?room=${roomId}&name=${encodeURIComponent(displayName)}`);
         } finally {
             setLoading(false);
         }

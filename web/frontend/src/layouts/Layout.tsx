@@ -1,8 +1,9 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { Home, Settings, HelpCircle, Info, User, Video, LogOut, Menu } from 'lucide-react';
 import { CONFIG } from '../config';
 import { useState } from 'react';
 import { useConfig } from '../context/ConfigContext';
+import { useAuth } from '../context/AuthContext';
 
 const NavbarItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => (
     <NavLink
@@ -22,6 +23,13 @@ const NavbarItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: s
 export const Layout = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { t } = useConfig();
+    const { user, signOut } = useAuth();
+    const navigate = useNavigate();
+
+    const handleSignOut = async () => {
+        await signOut();
+        navigate('/login');
+    };
 
     return (
         <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
@@ -51,15 +59,39 @@ export const Layout = () => {
 
                 {/* Right Actions */}
                 <div className="hidden md:flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                        <LogOut className="w-4 h-4" />
-                        <span>{t('logout')}</span>
-                    </button>
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 p-[2px] cursor-pointer hover:scale-105 transition-transform shadow-md">
-                        <div className="w-full h-full rounded-full bg-background flex items-center justify-center">
-                            <span className="font-bold text-xs">AD</span>
-                        </div>
-                    </div>
+                    {user ? (
+                        <>
+                            <button
+                                onClick={handleSignOut}
+                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                <span>{t('logout')}</span>
+                            </button>
+                            <div className="flex items-center gap-2 pl-2 border-l border-border">
+                                <div className="text-right hidden lg:block">
+                                    <p className="text-sm font-bold leading-none">{user.user_metadata?.full_name || 'User'}</p>
+                                    <p className="text-[10px] text-muted-foreground">{user.email}</p>
+                                </div>
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 p-[2px] cursor-pointer hover:scale-105 transition-transform shadow-md">
+                                    <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
+                                        {user.user_metadata?.avatar_url ? (
+                                            <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="font-bold text-xs">{(user.user_metadata?.username || 'U').substring(0, 2).toUpperCase()}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <NavLink
+                            to="/login"
+                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                        >
+                            {t('login')}
+                        </NavLink>
+                    )}
                 </div>
 
                 {/* Mobile Menu Button */}
