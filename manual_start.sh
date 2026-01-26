@@ -70,15 +70,15 @@ echo "Logs available at: $APP_DIR/backend.log"
 echo "=== DIAGNOSTICS ==="
 echo "1. Checking Ports..."
 if command -v ss > /dev/null; then
-    ss -tuln | grep -E '8000|3001'
+    ss -tuln | grep -E '3000|3001'
 elif command -v netstat > /dev/null; then
-    netstat -tuln | grep -E '8000|3001'
+    netstat -tuln | grep -E '3000|3001'
 else
     echo "Warning: ss/netstat not found. skipping port check."
 fi
 
 echo "2. Testing Local Connectivity..."
-curl -I -k https://localhost:8000 || echo "Failed to connect to Nginx (8000)"
+curl -I -k https://localhost:3000 || echo "Failed to connect to Nginx (3000)"
 curl -I http://localhost:3001 || echo "Failed to connect to Backend (3001)"
 
 echo "3. Recent Backend Logs:"

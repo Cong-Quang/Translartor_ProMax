@@ -4,7 +4,7 @@
 # Run as root: sudo ./setup_ubuntu.sh
 
 DOMAIN="xomnhala.ddns.net"
-HTTPS_PORT="8000"
+HTTPS_PORT="3000"
 FRONTEND_PORT="3000"
 BACKEND_PORT="3001"
 

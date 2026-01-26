@@ -1,7 +1,7 @@
 # HƯỚNG DẪN CÀI ĐẶT & VẬN HÀNH (DEPLOY MANUAL)
 
 Tài liệu này hướng dẫn chi tiết cách cài đặt server Ubuntu để chạy ứng dụng **Translartor ProMax** với cấu hình:
--   **Web (Frontend)**: Chạy HTTPS trên cổng **8000**.
+-   **Web (Frontend)**: Chạy HTTPS trên cổng **3000**.
 -   **Server (Backend)**: Chạy ngầm (Service) trên cổng **3001**.
 
 ---
@@ -11,7 +11,7 @@ Tài liệu này hướng dẫn chi tiết cách cài đặt server Ubuntu để
 -   Một server Ubuntu (VPS).
 -   Tên miền (DDNS): `xomnhala.ddns.net`.
 -   Router đã **Mở Port (Port Forwarding)**:
-    -   Port `8000` -> IP Server Ubuntu.
+    -   Port `3000` -> IP Server Ubuntu.
 
 ---
 
@@ -39,7 +39,7 @@ Copy 2 file script có sẵn trong dự án lên Server (dùng SCP hoặc tạo 
     chmod +x setup_ubuntu_selfsigned.sh
     sudo ./setup_ubuntu_selfsigned.sh
     ```
-    *-> Nginx sẽ được cài đặt, tạo chứng chỉ SSL và cấu hình để phục vụ Web tại cổng 8000.*
+    *-> Nginx sẽ được cài đặt, tạo chứng chỉ SSL và cấu hình để phục vụ Web tại cổng 3000.*
 
 ---
 
