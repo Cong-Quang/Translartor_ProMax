@@ -57,8 +57,7 @@ rm -f /etc/nginx/sites-enabled/default
 
 # 4. Cleanup & Start
 echo "Restarting Nginx..."
-pkill -F nginx || true
-pkill -f nginx || true
+pkill nginx || true
 nginx
 
 echo "=== WEB FRONTEND STARTED ==="
