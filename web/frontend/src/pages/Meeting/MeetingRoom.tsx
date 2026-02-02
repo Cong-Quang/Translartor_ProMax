@@ -21,6 +21,27 @@ interface ChatMessage {
     isMe: boolean;
 }
 
+const VideoPlayer = ({ stream, isMirrored = false, className = '', ...props }: any) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
+    return (
+        <video
+            ref={videoRef}
+            autoPlay
+            muted={isMirrored} // Local stream usually muted
+            playsInline
+            className={`${className} ${isMirrored ? 'transform scale-x-[-1]' : ''}`}
+            {...props}
+        />
+    );
+};
+
 export const MeetingRoom = () => {
     const { t, CONFIG, language } = useConfig();
     const navigate = useNavigate();
@@ -369,10 +390,10 @@ export const MeetingRoom = () => {
 
                         {/* Local User */}
                         <div className="relative bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden shadow-lg aspect-video w-full max-w-[480px]">
-                            <video
-                                ref={el => { if (el && localStream) el.srcObject = localStream; }}
-                                autoPlay muted playsInline
-                                className={`w-full h-full object-cover transform scale-x-[-1] ${isCamOn ? 'block' : 'hidden'}`}
+                            <VideoPlayer
+                                stream={localStream}
+                                isMirrored={true}
+                                className={`w-full h-full object-cover ${isCamOn ? 'block' : 'hidden'}`}
                             />
                             {!isCamOn && <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 font-bold text-xl border border-white/5 shadow-2xl rounded-full w-16 h-16 m-auto">Y</div>}
                             <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
@@ -384,9 +405,9 @@ export const MeetingRoom = () => {
                         {/* Remote Participants */}
                         {participants.map((p) => (
                             <div key={p.id} className="relative bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden shadow-lg aspect-video w-full max-w-[480px]">
-                                <video
-                                    ref={el => { if (el && p.stream) el.srcObject = p.stream; }}
-                                    autoPlay playsInline
+                                <VideoPlayer
+                                    stream={p.stream}
+                                    isMirrored={false}
                                     className={`w-full h-full object-cover ${p.cam ? 'block' : 'hidden'}`}
                                 />
                                 {!p.cam && <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 font-bold text-xl border border-white/5 shadow-2xl rounded-full w-16 h-16 m-auto">{p.name[0]}</div>}
