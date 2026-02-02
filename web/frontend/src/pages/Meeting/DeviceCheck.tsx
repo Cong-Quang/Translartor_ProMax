@@ -1,8 +1,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, Mic, MicOff, Video, VideoOff, Volume2, ArrowRight } from 'lucide-react';
+import { Camera, Mic, MicOff, Video, VideoOff, Volume2, ArrowRight, Languages } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 
 export const DeviceCheck = () => {
     const { t } = useConfig();
@@ -20,6 +21,16 @@ export const DeviceCheck = () => {
     const [selectedCam, setSelectedCam] = useState('');
     const [selectedMic, setSelectedMic] = useState('');
     const [selectedSpeaker, setSelectedSpeaker] = useState('');
+
+    // Speech Recognition Hook
+    const {
+        isListening,
+        transcript,
+        startListening,
+        stopListening,
+        resetTranscript,
+        isSupported
+    } = useSpeechRecognition({ lang: 'vi-VN' });
 
     // Khởi tạo stream
     useEffect(() => {
@@ -72,6 +83,7 @@ export const DeviceCheck = () => {
 
         return () => {
             stream?.getTracks().forEach(track => track.stop());
+            stopListening(); // Stop recognition on unmount
         };
     }, []);
 
@@ -151,6 +163,15 @@ export const DeviceCheck = () => {
                             />
                         </div>
                     </div>
+
+                    {/* Transcript Overlay */}
+                    {isSupported && transcript && (
+                        <div className="absolute bottom-20 left-4 right-4">
+                            <div className="bg-black/60 backdrop-blur-sm p-3 rounded-lg text-center">
+                                <p className="text-white text-sm font-medium animate-pulse">{transcript}</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Settings & Join Area */}
@@ -177,11 +198,22 @@ export const DeviceCheck = () => {
                             </select>
                         </div>
 
-                        {/* Mic Select */}
+                        {/* Mic Select & Speech Test */}
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                                <Mic className="w-4 h-4" /> {t('microphone')}
-                            </label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                    <Mic className="w-4 h-4" /> {t('microphone')}
+                                </label>
+                                {isSupported && (
+                                    <button
+                                        onClick={isListening ? stopListening : () => { resetTranscript(); startListening(); }}
+                                        className={`text-xs px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${isListening ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}
+                                    >
+                                        <Languages className="w-3 h-3" />
+                                        {isListening ? 'Dừng thử giọng' : 'Thử giọng nói'}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 className="w-full bg-secondary/30 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
                                 value={selectedMic}
@@ -191,6 +223,7 @@ export const DeviceCheck = () => {
                                     <option key={device.id} value={device.id}>{device.label}</option>
                                 ))}
                             </select>
+
                         </div>
 
                         {/* Speaker Select & Test */}
