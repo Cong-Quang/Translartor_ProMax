@@ -1,10 +1,10 @@
 
-
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, MessageSquare, Users, MoreVertical, Send, Signal } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, MessageSquare, Users, MoreVertical, Send, Signal, Languages } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import Peer from 'peerjs';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 
 interface Participant {
     id: string; // Peer ID / User ID
@@ -22,7 +22,7 @@ interface ChatMessage {
 }
 
 export const MeetingRoom = () => {
-    const { t, CONFIG } = useConfig();
+    const { t, CONFIG, language } = useConfig();
     const navigate = useNavigate();
     const { id: roomId } = useParams();
 
@@ -43,11 +43,53 @@ export const MeetingRoom = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [messageInput, setMessageInput] = useState('');
     const [meetingTime, setMeetingTime] = useState(0);
+    const [showCaptions, setShowCaptions] = useState(false);
 
     // Media States
     const [isMicOn, setIsMicOn] = useState(true);
     const [isCamOn, setIsCamOn] = useState(true);
-    // const [isSharing, setIsSharing] = useState(false); // Screen share deferred
+
+    // Speech Recognition
+    const [speechLang, setSpeechLang] = useState(language === 'en' ? 'en-US' : 'vi-VN');
+    const [showLangMenu, setShowLangMenu] = useState(false);
+
+    // Update speech lang if app language changes (optional sync)
+    useEffect(() => {
+        setSpeechLang(language === 'en' ? 'en-US' : 'vi-VN');
+    }, [language]);
+
+    const {
+        isListening,
+        transcript,
+        startListening,
+        stopListening,
+        resetTranscript,
+        isSupported
+    } = useSpeechRecognition({
+        lang: speechLang,
+        continuous: true,
+        clearTranscriptOnListen: true
+    });
+
+    // Auto-hide transcript after 5 seconds of invariance
+    useEffect(() => {
+        if (!transcript) return;
+
+        const timer = setTimeout(() => {
+            resetTranscript();
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [transcript, resetTranscript]);
+
+    // Sync speech recognition with mic status and captions toggle
+    useEffect(() => {
+        if (showCaptions && isMicOn) {
+            startListening();
+        } else {
+            stopListening();
+        }
+    }, [showCaptions, isMicOn, startListening, stopListening]);
 
     // Sync ref
     useEffect(() => {
@@ -131,15 +173,6 @@ export const MeetingRoom = () => {
             // Turn OFF: Stop the track to kill light
             if (videoTrack) {
                 videoTrack.stop();
-                // We also need to keep the track entry but marked as stopped or just remove it? 
-                // PeerJS might need a track to negotiate. 
-                // Better approach for smooth UX: keep enabled=false for quick toggle, 
-                // BUT user specifically asked for light off.
-                // Stop is the only way to kill light.
-
-                // IMPORTANT: PeerJS might drop connection if track is stopped.
-                // Alternative: send black frame? No, light still on.
-                // We will rely on re-negotiation or replaceTrack.
             }
         }
 
@@ -216,10 +249,6 @@ export const MeetingRoom = () => {
         const handleWebSocketMessage = (data: any) => {
             switch (data.type) {
                 case 'user-joined':
-                    // User joined, call them ONLY if we are the older participant?
-                    // Actually PeerJS mesh usually implies everyone calls everyone or newcomer calls everyone.
-                    // The server sends 'user-joined' to everyone currently in room EXCEPT the new user.
-                    // So WE are the old user, and WE should call the NEW user (data.user_id).
                     if (data.user_id !== myId) {
                         console.log("Calling new user:", data.user_id);
                         const call = peerRef.current?.call(data.user_id, localStream);
@@ -229,7 +258,6 @@ export const MeetingRoom = () => {
                                 handleRemoteStream(data.user_id, remoteStream);
                             });
                         }
-                        // Add to participants list preliminarily
                         addParticipant(data.user_id);
                         setMessages(prev => [...prev, {
                             sender: 'System', text: `${data.user_id} joined`,
@@ -291,6 +319,7 @@ export const MeetingRoom = () => {
             socketRef.current?.close();
             peerRef.current?.destroy();
             participantsRef.current.forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
+            stopListening();
         };
     }, [roomId, localStream]); // Wait for localStream before setting up peer
 
@@ -301,12 +330,6 @@ export const MeetingRoom = () => {
         setMessages(prev => [...prev, { sender: 'You', text: messageInput, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: true }]);
         setMessageInput('');
     };
-
-
-
-    // Helper to render video
-    // IMPORTANT: React requires us to attach the stream to the video element manually via ref or specific effect
-    // We will create a small sub-component or just use a callback ref pattern.
 
     return (
         <div className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans">
@@ -324,6 +347,21 @@ export const MeetingRoom = () => {
                         <span className="text-[10px] font-mono font-bold">{formatTime(meetingTime)}</span>
                     </div>
                 </div>
+
+                {/* Live Captions Overlay */}
+                {showCaptions && transcript && (
+                    <div className="absolute bottom-32 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                        <div className="bg-black/70 backdrop-blur-md px-6 py-4 rounded-2xl max-w-3xl text-center border border-white/10 shadow-2xl animate-in slide-in-from-bottom-5">
+                            <p className="text-lg md:text-xl font-medium text-white leading-relaxed">
+                                {transcript}
+                            </p>
+                            <p className="text-[10px] text-zinc-400 mt-2 uppercase tracking-widest">
+                                {t('captions')} • {language === 'en' ? 'English' : 'Tiếng Việt'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
 
                 {/* Video Grid */}
                 <div className="flex-1 p-6 flex items-center justify-center overflow-hidden mt-12 mb-20">
@@ -372,6 +410,39 @@ export const MeetingRoom = () => {
                         <button onClick={() => navigate('/')} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl transition-all flex items-center gap-3 shadow-lg shadow-red-500/20"><PhoneOff className="w-5 h-5" /><span className="font-bold text-sm uppercase tracking-wider">{t('leave')}</span></button>
                         <div className="w-[1px] h-8 bg-white/10" />
                         <div className="flex items-center gap-2">
+                            {/* Captions Toggle */}
+                            {/* Captions Toggle & Language */}
+                            <div className="relative flex items-center">
+                                {showLangMenu && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-zinc-900 border border-white/10 rounded-xl p-1 shadow-xl flex flex-col gap-1 w-32 animate-in slide-in-from-bottom-2">
+                                        <button
+                                            onClick={() => { setSpeechLang('vi-VN'); setShowLangMenu(false); }}
+                                            className={`px-3 py-2 text-xs font-bold rounded-lg transition-colors text-left ${speechLang === 'vi-VN' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                                        >
+                                            Tiếng Việt
+                                        </button>
+                                        <button
+                                            onClick={() => { setSpeechLang('en-US'); setShowLangMenu(false); }}
+                                            className={`px-3 py-2 text-xs font-bold rounded-lg transition-colors text-left ${speechLang === 'en-US' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                                        >
+                                            English
+                                        </button>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setShowCaptions(!showCaptions)}
+                                    className={`p-4 rounded-l-2xl transition-all border-r border-white/5 ${showCaptions ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                                    title={t('captions')}
+                                >
+                                    <Languages className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => setShowLangMenu(!showLangMenu)}
+                                    className={`p-4 rounded-r-2xl bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-all border-l border-black/20`}
+                                >
+                                    <span className="text-[10px] font-bold uppercase">{speechLang === 'vi-VN' ? 'VI' : 'EN'}</span>
+                                </button>
+                            </div>
                             <button onClick={() => { setIsSidebarOpen(true); setActiveTab('chat'); }} className="p-4 rounded-2xl bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-all"><MessageSquare className="w-5 h-5" /></button>
                             <button onClick={() => { setIsSidebarOpen(true); setActiveTab('people'); }} className="p-4 rounded-2xl bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-all"><Users className="w-5 h-5" /></button>
                         </div>

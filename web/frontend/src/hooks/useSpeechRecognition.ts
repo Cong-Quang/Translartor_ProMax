@@ -33,16 +33,17 @@ export interface UseSpeechRecognitionProps {
     lang?: string;
     continuous?: boolean;
     interimResults?: boolean;
+    clearTranscriptOnListen?: boolean;
 }
 
 export const useSpeechRecognition = ({
     lang = 'vi-VN',
     continuous = true,
-    interimResults = true
+    interimResults = true,
+    clearTranscriptOnListen = false
 }: UseSpeechRecognitionProps = {}) => {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
-    const [finalTranscript, setFinalTranscript] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isSupported, setIsSupported] = useState(false);
 
@@ -64,40 +65,47 @@ export const useSpeechRecognition = ({
         }
 
         return () => {
-            if (recognitionRef.current && isListening) {
-                recognitionRef.current.stop();
+            if (recognitionRef.current) {
+                // recognitionRef.current.stop(); // Don't auto-stop on unmount to avoid fighting with strict mode re-renders, or do?
+                recognitionRef.current.abort();
             }
         };
     }, []);
 
-    // Update lang dynamically if needed
+    // Update lang dynamically
     useEffect(() => {
-        if (recognitionRef.current) {
+        if (recognitionRef.current && recognitionRef.current.lang !== lang) {
             recognitionRef.current.lang = lang;
         }
     }, [lang]);
 
     const startListening = useCallback(() => {
         if (!recognitionRef.current) return;
+        if (isListening) return; // Prevent double start
 
         setError(null);
-        // Clean up previous listeners to avoid duplicates if any (though usually re-assigning handles this)
+        if (clearTranscriptOnListen) {
+            setTranscript('');
+        }
 
         recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-            let interimTranscript = '';
-            let newFinalTranscript = '';
+            let newTranscript = '';
 
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    newFinalTranscript += event.results[i][0].transcript;
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
+            // If continuous, we might want to accumulate OR just show the stream.
+            // But the user requested "new sentence replaces old". 
+            // The standard 'results' list accumulates EVERYTHING in the session.
+            // To get "latest" behavior, we should rely on resultIndex.
+
+            // Logic: Just show what's currently being spoken or just finished in this "event batch"
+            // If we want to drop history, we only iterate from event.resultIndex
+
+            const startIndex = event.resultIndex; // This effectively drops history before the current 'gap'
+
+            for (let i = startIndex; i < event.results.length; ++i) {
+                newTranscript += event.results[i][0].transcript;
             }
 
-            // Append new final chunks to our stored final transcript
-            setFinalTranscript(prev => prev + newFinalTranscript);
-            setTranscript(interimTranscript);
+            setTranscript(newTranscript);
         };
 
         recognitionRef.current.onend = () => {
@@ -105,8 +113,13 @@ export const useSpeechRecognition = ({
         };
 
         recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-            console.error("Speech recognition error", event.error);
-            setError(`Lỗi nhận dạng: ${event.error}`);
+            // console.error("Speech recognition error", event.error); // Ignore repeated errors
+            if (event.error === 'no-speech') {
+                return; // Ignore no-speech errors usually
+            }
+            if (event.error === 'not-allowed') {
+                setError('Microphone access denied.');
+            }
             setIsListening(false);
         };
 
@@ -114,9 +127,10 @@ export const useSpeechRecognition = ({
             recognitionRef.current.start();
             setIsListening(true);
         } catch (err) {
-            console.error("Failed to start recognition:", err);
+            // Usually "already started"
+            console.warn(err);
         }
-    }, []);
+    }, [isListening, clearTranscriptOnListen]);
 
     const stopListening = useCallback(() => {
         if (!recognitionRef.current) return;
@@ -125,15 +139,13 @@ export const useSpeechRecognition = ({
     }, []);
 
     const resetTranscript = useCallback(() => {
-        setFinalTranscript('');
         setTranscript('');
     }, []);
 
     return {
         isSupported,
         isListening,
-        transcript: finalTranscript + (transcript ? ' ' + transcript : ''), // Combine final + interim
-        interimTranscript: transcript,
+        transcript,
         startListening,
         stopListening,
         resetTranscript,

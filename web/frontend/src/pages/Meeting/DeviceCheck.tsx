@@ -6,7 +6,7 @@ import { useConfig } from '../../context/ConfigContext';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 
 export const DeviceCheck = () => {
-    const { t } = useConfig();
+    const { t, language } = useConfig();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const roomId = searchParams.get('room');
@@ -22,6 +22,20 @@ export const DeviceCheck = () => {
     const [selectedMic, setSelectedMic] = useState('');
     const [selectedSpeaker, setSelectedSpeaker] = useState('');
 
+    // Mapping app language to speech language
+    const getLocale = (lang: string) => {
+        return lang === 'en' ? 'en-US' : 'vi-VN';
+    };
+
+    const [speechLang, setSpeechLang] = useState(getLocale(language));
+
+    // Update speechLang when app language changes, but allow manual override later if needed
+    // (Optional: strict sync or loose sync. Let's stick to loose sync for now, 
+    // or just re-init on mount. Let's sync it for convenience)
+    useEffect(() => {
+        setSpeechLang(getLocale(language));
+    }, [language]);
+
     // Speech Recognition Hook
     const {
         isListening,
@@ -30,7 +44,7 @@ export const DeviceCheck = () => {
         stopListening,
         resetTranscript,
         isSupported
-    } = useSpeechRecognition({ lang: 'vi-VN' });
+    } = useSpeechRecognition({ lang: speechLang });
 
     // Khởi tạo stream
     useEffect(() => {
@@ -205,13 +219,24 @@ export const DeviceCheck = () => {
                                     <Mic className="w-4 h-4" /> {t('microphone')}
                                 </label>
                                 {isSupported && (
-                                    <button
-                                        onClick={isListening ? stopListening : () => { resetTranscript(); startListening(); }}
-                                        className={`text-xs px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${isListening ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}
-                                    >
-                                        <Languages className="w-3 h-3" />
-                                        {isListening ? 'Dừng thử giọng' : 'Thử giọng nói'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            className="text-xs bg-secondary/50 border border-white/10 rounded-md px-2 py-1 focus:outline-none"
+                                            value={speechLang}
+                                            onChange={(e) => setSpeechLang(e.target.value)}
+                                        >
+                                            <option value="vi-VN">Tiếng Việt</option>
+                                            <option value="en-US">English</option>
+                                        </select>
+
+                                        <button
+                                            onClick={isListening ? stopListening : () => { resetTranscript(); startListening(); }}
+                                            className={`text-xs px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${isListening ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}
+                                        >
+                                            <Languages className="w-3 h-3" />
+                                            {isListening ? 'Dừng' : 'Thử giọng'}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                             <select
