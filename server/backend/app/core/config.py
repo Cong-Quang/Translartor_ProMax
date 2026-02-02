@@ -1,21 +1,19 @@
 
 from pydantic_settings import BaseSettings
-from functools import lru_cache
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Translartor ProMax Backend"
-    VERSION: str = "1.0.0"
+    """
+    Cấu hình cho toàn bộ ứng dụng.
+    Chứa các biến môi trường và cài đặt chung.
+    """
     API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = "Translator ProMax Server"
     
-    # CORS Configuration
-    BACKEND_CORS_ORIGINS: list[str] = ["*"]  # In production, specific origins should be allowed
-
-    # AI Worker Configuration
-    AI_WORKER_KEY: str = "change_this_to_a_secure_key"
-
+    # Cấu hình Supabase
+    SUPABASE_URL: str = "https://hzsltpisskypgbrltlod.supabase.co"
+    SUPABASE_KEY: str = "sb_publishable_WGUaze-j9uGDslWMrLxrBg_A-9nIBJ2"
+    
     class Config:
         case_sensitive = True
 
-@lru_cache()
-def get_settings():
-    return Settings()
+settings = Settings()

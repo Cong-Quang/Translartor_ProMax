@@ -131,25 +131,38 @@ export const MeetingRoom = () => {
 
     // Initialize Local Media
     useEffect(() => {
+        let isMounted = true;
+        let stream: MediaStream | null = null;
+
         const initMedia = async () => {
             try {
-                // Get initial stream with both on
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                setLocalStream(stream);
-                localStreamRef.current = stream;
+                const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+                if (!isMounted) {
+                    // Component unmounted before we got the stream. Stop it immediately.
+                    s.getTracks().forEach(track => track.stop());
+                    return;
+                }
+
+                stream = s;
+                setLocalStream(s);
+                localStreamRef.current = s;
             } catch (err) {
                 console.error("Error accessing media:", err);
-                // Handle error (maybe request permissions again or show alert)
             }
         };
+
         initMedia();
 
         return () => {
-            // Cleanup media on unmount
+            isMounted = false;
+            // cleanup local scope stream
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            // cleanup ref stream (just in case)
             if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => {
-                    track.stop();
-                });
+                localStreamRef.current.getTracks().forEach(track => track.stop());
             }
         };
     }, []);
@@ -163,40 +176,37 @@ export const MeetingRoom = () => {
         const videoTrack = localStream.getVideoTracks()[0];
 
         if (newStatus) {
-            // Turn ON: If track is missing or stopped, re-acquire
+            // Turn ON
             if (!videoTrack || videoTrack.readyState === 'ended') {
                 try {
                     const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
                     const newVideoTrack = newStream.getVideoTracks()[0];
 
-                    // Replace track in local stream
                     if (videoTrack) {
+                        videoTrack.stop(); // Stop the old hardware track explicitely
                         localStream.removeTrack(videoTrack);
                     }
                     localStream.addTrack(newVideoTrack);
 
-                    // Replace track in peer connections
+                    // Update peers
                     Object.values(peersRef.current).forEach((call: any) => {
                         const sender = call.peerConnection.getSenders().find((s: any) => s.track?.kind === 'video');
-                        if (sender) {
-                            sender.replaceTrack(newVideoTrack);
-                        }
+                        if (sender) sender.replaceTrack(newVideoTrack);
                     });
                 } catch (e) {
                     console.error("Failed to restart video", e);
-                    setIsCamOn(false); // Revert if failed
+                    setIsCamOn(false);
                     return;
                 }
             } else {
                 videoTrack.enabled = true;
             }
         } else {
-            // Turn OFF: Stop the track to kill light
+            // Turn OFF - Stop the track completely to turn off light
             if (videoTrack) {
                 videoTrack.stop();
             }
         }
-
         socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'cam', value: newStatus }));
     };
 
@@ -219,25 +229,19 @@ export const MeetingRoom = () => {
         if (socketRef.current) socketRef.current.close();
 
         // 1. Setup PeerJS
-        // Use local user ID as Peer ID for simplicity
         const peer = new Peer(myId);
         peerRef.current = peer;
 
         peer.on('open', (id) => {
             console.log('My peer ID is: ' + id);
-            // Now connect to WS
             connectWebSocket();
         });
 
         peer.on('call', (call) => {
-            // Answer incoming call with our stream
-            console.log("Receiving call from", call.peer);
             call.answer(localStream);
-
             call.on('stream', (remoteStream) => {
                 handleRemoteStream(call.peer, remoteStream);
             });
-
             peersRef.current[call.peer] = call;
         });
 
@@ -247,7 +251,6 @@ export const MeetingRoom = () => {
 
         const connectWebSocket = () => {
             const baseWsUrl = CONFIG.SERVER.WS_URL.endsWith('/') ? CONFIG.SERVER.WS_URL : `${CONFIG.SERVER.WS_URL}/`;
-            // Using the new path structure
             const wsUrl = `${baseWsUrl}${roomId}/${myId}`;
             const socket = new WebSocket(wsUrl);
             socketRef.current = socket;
@@ -271,7 +274,6 @@ export const MeetingRoom = () => {
             switch (data.type) {
                 case 'user-joined':
                     if (data.user_id !== myId) {
-                        console.log("Calling new user:", data.user_id);
                         const call = peerRef.current?.call(data.user_id, localStream);
                         if (call) {
                             peersRef.current[data.user_id] = call;
@@ -286,7 +288,6 @@ export const MeetingRoom = () => {
                         }]);
                     }
                     break;
-
                 case 'user-left':
                     removeParticipant(data.user_id);
                     setMessages(prev => [...prev, {
@@ -294,14 +295,12 @@ export const MeetingRoom = () => {
                         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
                     }]);
                     break;
-
                 case 'message':
                     setMessages(prev => [...prev, {
                         sender: data.user_id, text: data.message,
                         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
                     }]);
                     break;
-
                 case 'device-toggle':
                     updateParticipantState(data.user_id, data.kind, data.value);
                     break;
@@ -311,9 +310,7 @@ export const MeetingRoom = () => {
         const addParticipant = (id: string, stream?: MediaStream) => {
             setParticipants(prev => {
                 if (prev.find(p => p.id === id)) {
-                    if (stream) {
-                        return prev.map(p => p.id === id ? { ...p, stream } : p);
-                    }
+                    if (stream) return prev.map(p => p.id === id ? { ...p, stream } : p);
                     return prev;
                 }
                 return [...prev, { id, name: id, stream, cam: true, mic: true }];
@@ -336,13 +333,48 @@ export const MeetingRoom = () => {
             setParticipants(prev => prev.map(p => p.id === id ? { ...p, [kind]: value } : p));
         };
 
-        return () => {
+        const cleanup = () => {
             socketRef.current?.close();
             peerRef.current?.destroy();
             participantsRef.current.forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
+
+            // Aggressive local stream cleanup
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach(t => {
+                    t.enabled = false; // Mute first
+                    t.stop(); // Stop hardware
+                });
+            }
             stopListening();
         };
-    }, [roomId, localStream]); // Wait for localStream before setting up peer
+
+        window.addEventListener('beforeunload', cleanup);
+
+        return () => {
+            window.removeEventListener('beforeunload', cleanup);
+            cleanup();
+        };
+    }, [roomId, localStream, stopListening]);
+
+    const handleLeave = () => {
+        // Explicitly stop all tracks before navigating
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(track => {
+                track.enabled = false;
+                track.stop();
+            });
+        }
+
+        // Also check if there's a loose 'localStream' state that differs
+        if (localStream && localStream !== localStreamRef.current) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+
+        if (socketRef.current) socketRef.current.close();
+        if (peerRef.current) peerRef.current.destroy();
+
+        navigate('/');
+    };
 
     const handleSendMessage = () => {
         if (!messageInput.trim() || !socketRef.current) return;
@@ -428,7 +460,7 @@ export const MeetingRoom = () => {
                             <button onClick={toggleCam} className={`p-4 rounded-2xl transition-all ${isCamOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isCamOn ? t('stopVideo') : t('startVideo')}><Video className="w-5 h-5" /></button>
                         </div>
                         <div className="w-[1px] h-8 bg-white/10" />
-                        <button onClick={() => navigate('/')} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl transition-all flex items-center gap-3 shadow-lg shadow-red-500/20"><PhoneOff className="w-5 h-5" /><span className="font-bold text-sm uppercase tracking-wider">{t('leave')}</span></button>
+                        <button onClick={handleLeave} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl transition-all flex items-center gap-3 shadow-lg shadow-red-500/20"><PhoneOff className="w-5 h-5" /><span className="font-bold text-sm uppercase tracking-wider">{t('leave')}</span></button>
                         <div className="w-[1px] h-8 bg-white/10" />
                         <div className="flex items-center gap-2">
                             {/* Captions Toggle */}
