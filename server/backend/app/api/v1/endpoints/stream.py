@@ -1,145 +1,229 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, List, Any
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from typing import Dict, Optional
 import json
 import asyncio
 
 router = APIRouter()
 
+import logging
+
+# Configure Logging
+logger = logging.getLogger("uvicorn.error")
+
 class ConnectionManager:
     """
-    Quản lý kết nối WebSocket và trạng thái người dùng trong các phòng.
+    Quản lý kết nối WebSocket tập trung.
+    Phân biệt giữa 'Client thường' (User) và 'Client Colab'.
     """
     def __init__(self):
-        # Cấu trúc: { "room_id": { "client_id": { "ws": WebSocket, "config": dict } } }
-        self.active_connections: Dict[str, Dict[str, dict]] = {}
+        # { "room_id": { "users": { "client_id": ws }, "colab": ws } }
+        self.rooms: Dict[str, Dict[str, any]] = {}
 
-    async def connect(self, websocket: WebSocket, room_id: str, client_id: str):
+    async def connect(self, websocket: WebSocket, room_id: str, client_id: str, role: str):
         await websocket.accept()
-        if room_id not in self.active_connections:
-            self.active_connections[room_id] = {}
+        if room_id not in self.rooms:
+            self.rooms[room_id] = {"users": {}, "colab": None}
         
-        # Lưu kết nối và cấu hình mặc định
-        self.active_connections[room_id][client_id] = {
-            "ws": websocket,
-            "config": {
-                "translate_mode": False,  # Mặc định tắt dịch
-                "target_lang": "vi"       # Ngôn ngữ đích mặc định
+        if role == "colab":
+            # Nếu là Colab -> Lưu vào slot colab
+            logger.info(f"🔵 COLAB CONNECTED to Room {room_id}")
+            self.rooms[room_id]["colab"] = websocket
+            try:
+                await websocket.send_text(json.dumps({"type": "welcome", "message": "Colab connected successfully"}))
+            except:
+                pass
+        else:
+            # Nếu là User -> Lưu vào danh sách users
+            logger.info(f"🟢 USER {client_id} joined Room {room_id}")
+            self.rooms[room_id]["users"][client_id] = {
+                "ws": websocket,
+                # Default config: src_lang='auto' (hoặc ngôn ngữ của user), target_lang='vi' (ngôn ngữ muốn nhận)
+                "config": {"translate_mode": False, "target_lang": "vi", "src_lang": "auto"}
             }
-        }
-        print(f"Client {client_id} joined room {room_id}")
 
-    def disconnect(self, room_id: str, client_id: str):
-        if room_id in self.active_connections:
-            if client_id in self.active_connections[room_id]:
-                del self.active_connections[room_id][client_id]
-            if not self.active_connections[room_id]:
-                del self.active_connections[room_id]
-        print(f"Client {client_id} left room {room_id}")
+    def disconnect(self, room_id: str, client_id: str, role: str):
+        if room_id in self.rooms:
+            if role == "colab":
+                self.rooms[room_id]["colab"] = None
+                logger.info(f"🔴 COLAB DISCONNECTED from Room {room_id}")
+            else:
+                if client_id in self.rooms[room_id]["users"]:
+                    del self.rooms[room_id]["users"][client_id]
+                logger.info(f"🔴 USER {client_id} left Room {room_id}")
+            
+            # Clean up empty rooms
+            if not self.rooms[room_id]["users"] and not self.rooms[room_id]["colab"]:
+                del self.rooms[room_id]
 
-    async def update_config(self, room_id: str, client_id: str, config: dict):
+    async def update_user_config(self, room_id: str, client_id: str, config: dict):
+        if room_id in self.rooms and client_id in self.rooms[room_id]["users"]:
+            self.rooms[room_id]["users"][client_id]["config"].update(config)
+
+    async def route_message(self, room_id: str, sender_id: str, data: dict):
         """
-        Cập nhật cấu hình dịch của user (VD: bật/tắt dịch, chọn ngôn ngữ đích).
+        Điều phối tin nhắn JSON.
         """
-        if room_id in self.active_connections and client_id in self.active_connections[room_id]:
-            self.active_connections[room_id][client_id]["config"].update(config)
-            print(f"Config updated for {client_id}: {self.active_connections[room_id][client_id]['config']}")
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def broadcast(self, message: str, room_id: str):
-        if room_id in self.active_connections:
-            for client_info in self.active_connections[room_id].values():
-                await client_info["ws"].send_text(message)
-
-    async def process_and_route(self, room_id: str, sender_id: str, data: dict):
-        """
-        Logic tung tâm: Nhận dữ liệu từ Sender -> Xử lý (Colab) -> Gửi cho Receivers.
-        """
-        if room_id not in self.active_connections:
+        if room_id not in self.rooms:
             return
 
-        sender_content = data.get("content") # Audio blob hoặc Text
-        sender_type = data.get("type", "text") # 'audio' hoặc 'text'
+        room_data = self.rooms[room_id]
+        users = room_data["users"]
+        colab_ws = room_data["colab"]
 
-        # Duyệt qua tất cả người khác trong phòng
-        for client_id, client_info in self.active_connections[room_id].items():
-            if client_id == sender_id:
-                continue # Bỏ qua chính mình
+        sender_content = data.get("content")
+        sender_type = data.get("type", "text") 
+        
+        # Lấy ngôn ngữ nguồn của người gửi
+        sender_info = users.get(sender_id)
+        src_lang = "auto"
+        if sender_info:
+            src_lang = sender_info["config"].get("src_lang", "auto")
 
-            receiver_ws = client_info["ws"]
-            receiver_config = client_info["config"]
-            
-            # Logic: Nếu Receiver bật dịch -> Gửi qua Colab -> Gửi kết quả dịch về Receiver
-            if receiver_config.get("translate_mode"):
-                target_lang = receiver_config.get("target_lang", "vi")
-                
-                # Gọi Colab xử lý (Giả lập async)
-                # Trong thực tế: response = await call_colab_api(sender_content, target_lang)
-                if sender_type == "text":
-                    translated_text = await self.mock_colab_translate(sender_content, target_lang)
-                else:
-                    translated_text = f"[Audio Received] Translated to {target_lang}..."
-
-                response_payload = {
-                    "type": "translation",
+        # --- LOGIC MỚI: Hỗ trợ Test 1 mình (Single User) ---
+        # Nếu phòng chỉ có 1 người (là chính sender) và họ bật translate_mode
+        # -> Gửi yêu cầu dịch cho chính họ để test.
+        if len(users) == 1 and sender_info and sender_info["config"].get("translate_mode"):
+            if colab_ws:
+                payload = {
+                    "task": "translate",
                     "sender_id": sender_id,
-                    "original": sender_content if sender_type == "text" else "[Audio]",
-                    "translated": translated_text,
-                    "target_lang": target_lang
+                    "target_user_id": sender_id, # Target chính mình
+                    "content": sender_content,
+                    "type": sender_type,
+                    "src_lang": src_lang,
+                    "target_lang": sender_info["config"].get("target_lang", "vi")
                 }
-                await receiver_ws.send_text(json.dumps(response_payload))
+                try:
+                    await colab_ws.send_text(json.dumps(payload))
+                except Exception:
+                    pass
+            # Vẫn trả về tin nhắn gốc (Echo)
+            # await sender_info["ws"].send_text(json.dumps({
+            #     "type": "original",
+            #     "sender_id": sender_id,
+            #     "content": sender_content,
+            #     "content_type": sender_type
+            # }))
             
+        # Forward logic cho các recipients khác (nếu có)
+        await self._dispatch_to_recipients(users, colab_ws, sender_id, sender_content, sender_type, src_lang)
+
+
+    async def _dispatch_to_recipients(self, users, colab_ws, sender_id, content, msg_type, src_lang):
+        for uid, u_info in users.items():
+            if uid == sender_id: continue
+
+            target_ws = u_info["ws"]
+            config = u_info["config"]
+
+            if config.get("translate_mode"):
+                if colab_ws:
+                    # Gửi cho Colab
+                    payload = {
+                        "task": "translate",
+                        "sender_id": sender_id,
+                        "target_user_id": uid,
+                        "content": content,
+                        "type": msg_type, # 'audio' hoặc 'text'
+                        "src_lang": src_lang,             # Ngôn ngữ nguồn (của người gửi)
+                        "target_lang": config.get("target_lang", "vi") # Ngôn ngữ đích (của người nhận)
+                    }
+                    try:
+                        await colab_ws.send_text(json.dumps(payload))
+                    except Exception:
+                        pass
+                else:
+                    # Colab không online -> Báo lỗi cho sender
+                    error_payload = {
+                        "type": "error",
+                        "content": "⚠️ AI Worker chưa kết nối. Tin nhắn chưa được dịch.",
+                        "original_content": content
+                    }
+                    # Gửi lại cho người gửi để họ biết
+                    sender_ws = users.get(sender_id, {}).get("ws")
+                    if sender_ws:
+                        try: 
+                            await sender_ws.send_text(json.dumps(error_payload))
+                        except: pass
+                    
+                    # Vẫn gửi tin nhắn gốc cho người nhận (fallback)
+                    payload = {
+                        "type": "original",
+                        "sender_id": sender_id,
+                        "content": content,
+                        "content_type": msg_type
+                    }
+                    await target_ws.send_text(json.dumps(payload))
             else:
-                # Nếu không bật dịch -> Gửi nguyên bản
-                await receiver_ws.send_text(json.dumps({
+                # Gửi thẳng (Nếu là audio, client nhận JSON chứa Base64 audio về tự decode)
+                payload = {
                     "type": "original",
                     "sender_id": sender_id,
-                    "content": sender_content
-                }))
+                    "content": content, # Text hoặc Base64 Audio
+                    "content_type": msg_type
+                }
+                await target_ws.send_text(json.dumps(payload))
 
-    async def mock_colab_translate(self, text: str, target_lang: str) -> str:
+
+    async def route_from_colab(self, room_id: str, data: dict):
         """
-        Giả lập gọi API Colab.
+        Nhận kết quả từ Colab -> Gửi cho User đích.
         """
-        await asyncio.sleep(0.5) # Giả lập độ trễ mạng/xử lý
-        return f"(Dịch sang {target_lang}): {text}"
+        target_user_id = data.get("target_user_id")
+        if room_id in self.rooms and target_user_id in self.rooms[room_id]["users"]:
+            target_ws = self.rooms[room_id]["users"][target_user_id]["ws"]
+            try:
+                await target_ws.send_text(json.dumps({
+                    "type": "translated",
+                    "sender_id": data.get("sender_id"),
+                    "content": data.get("translated_text"),
+                    "original_content": data.get("original_content")
+                }))
+            except Exception as e:
+                pass
 
 manager = ConnectionManager()
 
 @router.websocket("/ws/{room_id}/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str):
-    await manager.connect(websocket, room_id, client_id)
+async def websocket_endpoint(
+    websocket: WebSocket, 
+    room_id: str, 
+    client_id: str, 
+    role: str = Query("user", enum=["user", "colab"])
+):
     try:
+        await manager.connect(websocket, room_id, client_id, role)
         while True:
-            # Nhận dữ liệu thô (JSON string)
+            # Chỉ nhận Text/JSON vì STT/TTS đã xử lý ở Client
             raw_data = await websocket.receive_text()
-            
             try:
                 data = json.loads(raw_data)
-                cmd = data.get("cmd")
-
-                if cmd == "config":
-                    # User gửi lệnh cấu hình (VD: Bật dịch)
-                    # { "cmd": "config", "translate_mode": true, "target_lang": "vi" }
-                    await manager.update_config(room_id, client_id, {
-                        "translate_mode": data.get("translate_mode"),
-                        "target_lang": data.get("target_lang")
-                    })
-                    await websocket.send_text(json.dumps({"status": "config_updated"}))
                 
-                elif cmd == "message":
-                    # User gửi tin nhắn/audio để chat
-                    # { "cmd": "message", "type": "text", "content": "Hello" }
-                    await manager.process_and_route(room_id, client_id, data)
-                
+                if role == "colab":
+                    # Tin nhắn từ Colab -> Là kết quả dịch
+                    await manager.route_from_colab(room_id, data)
                 else:
-                    print(f"Unknown command: {cmd}")
+                    # Tin nhắn từ User
+                    cmd = data.get("cmd")
+                    if cmd == "config":
+                        await manager.update_user_config(room_id, client_id, {
+                            "translate_mode": data.get("translate_mode"),
+                            "target_lang": data.get("target_lang"),
+                            "src_lang": data.get("src_lang", "auto")
+                        })
+                    elif cmd == "message":
+                        # Chỉ route message text
+                        await manager.route_message(room_id, client_id, data)
 
             except json.JSONDecodeError:
-                await websocket.send_text("Invalid JSON format")
-
+                logger.warning("Received invalid JSON")
+                pass
+            
     except WebSocketDisconnect:
-        manager.disconnect(room_id, client_id)
-        # Thông báo cho phòng là ai đó đã thoát
-        await manager.broadcast(f"Client {client_id} left", room_id)
+        manager.disconnect(room_id, client_id, role)
+    except Exception as e:
+        logger.error(f"❌ WebSocket Critical Error: {e}")
+        try:
+             await websocket.close()
+        except:
+            pass

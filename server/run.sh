@@ -47,7 +47,7 @@ echo "Restarting Backend Process..."
 pkill -f "uvicorn app.main:app" || true
 
 # Start with nohup
-nohup uvicorn app.main:app --host 0.0.0.0 --port 3001 > backend.log 2>&1 &
+nohup uvicorn app.main:app --host 0.0.0.0 --port 3001 --reload > backend.log 2>&1 &
 
 PID=$!
 echo "=== BACKEND STARTED (PID: $PID) ==="

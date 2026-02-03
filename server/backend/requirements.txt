@@ -4,3 +4,4 @@ websockets
 python-multipart
 pydantic-settings
 supabase
+pyngrok
