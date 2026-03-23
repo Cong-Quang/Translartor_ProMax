@@ -34,7 +34,7 @@ const VideoPlayer = ({ stream, isMirrored = false, className = '', ...props }: a
         <video
             ref={videoRef}
             autoPlay
-            muted={isMirrored} // Local stream usually muted
+            muted={isMirrored} // Local stream muted to avoid echo
             playsInline
             className={`${className} ${isMirrored ? 'transform scale-x-[-1]' : ''}`}
             {...props}
@@ -47,7 +47,8 @@ export const MeetingRoom = () => {
     const navigate = useNavigate();
     const { id: roomId } = useParams();
 
-    const [myId] = useState(`user_${Math.floor(Math.random() * 10000)}`);
+    // Dùng UUID cho PeerJS ID để tránh trùng
+    const [myId] = useState(() => crypto.randomUUID());
     const [participants, setParticipants] = useState<Participant[]>([]);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
 
@@ -56,7 +57,7 @@ export const MeetingRoom = () => {
     const socketRef = useRef<WebSocket | null>(null);
     const peerRef = useRef<Peer | null>(null);
     const localStreamRef = useRef<MediaStream | null>(null);
-    const peersRef = useRef<Record<string, any>>({}); // Keep track of PeerJS calls
+    const peersRef = useRef<Record<string, any>>({}); // Track PeerJS calls
 
     // UI States
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -65,6 +66,8 @@ export const MeetingRoom = () => {
     const [messageInput, setMessageInput] = useState('');
     const [meetingTime, setMeetingTime] = useState(0);
     const [showCaptions, setShowCaptions] = useState(false);
+    const [translateMode, setTranslateMode] = useState(true); // Toggle dịch
+    const [remoteCaptions, setRemoteCaptions] = useState<{ text: string, sender: string, isTranslated: boolean } | null>(null);
 
     // Media States
     const [isMicOn, setIsMicOn] = useState(true);
@@ -74,7 +77,6 @@ export const MeetingRoom = () => {
     const [speechLang, setSpeechLang] = useState(language === 'en' ? 'en-US' : 'vi-VN');
     const [showLangMenu, setShowLangMenu] = useState(false);
 
-    // Update speech lang if app language changes (optional sync)
     useEffect(() => {
         setSpeechLang(language === 'en' ? 'en-US' : 'vi-VN');
     }, [language]);
@@ -92,18 +94,14 @@ export const MeetingRoom = () => {
         clearTranscriptOnListen: true
     });
 
-    // Auto-hide transcript after 5 seconds of invariance
+    // Auto-hide transcript after 5s
     useEffect(() => {
         if (!transcript) return;
-
-        const timer = setTimeout(() => {
-            resetTranscript();
-        }, 5000);
-
+        const timer = setTimeout(() => resetTranscript(), 5000);
         return () => clearTimeout(timer);
     }, [transcript, resetTranscript]);
 
-    // Sync speech recognition with mic status and captions toggle
+    // Sync speech recognition with mic & captions
     useEffect(() => {
         if (showCaptions && isMicOn) {
             startListening();
@@ -123,6 +121,35 @@ export const MeetingRoom = () => {
         return () => clearInterval(timer);
     }, []);
 
+    // Gửi config dịch thuật lên server khi speechLang hoặc translateMode thay đổi
+    useEffect(() => {
+        if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+        
+        socketRef.current.send(JSON.stringify({
+            type: 'config',
+            translate_mode: translateMode,
+            src_lang: speechLang === 'vi-VN' ? 'vi' : 'en',
+            target_lang: speechLang === 'vi-VN' ? 'vi' : 'en' // Dịch sang cùng ngôn ngữ đang chọn
+        }));
+    }, [speechLang, translateMode, socketRef.current?.readyState]);
+
+    // Gửi Voice Transcript lên server để dịch (nếu có transcript mới) sau khi debounce
+    useEffect(() => {
+        if (!transcript || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+        
+        const timer = setTimeout(() => {
+            if (socketRef.current?.readyState === WebSocket.OPEN) {
+                // Gửi transcript đi dịch sau khi ngưng nói 1s
+                socketRef.current.send(JSON.stringify({
+                    type: 'translate-text',
+                    content: transcript
+                }));
+            }
+        }, 1000); // Đợi 1s không có từ mới thì mới dịch
+        
+        return () => clearTimeout(timer); // Xoá timer nếu transcript thay đổi liên tục
+    }, [transcript]);
+
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -137,13 +164,10 @@ export const MeetingRoom = () => {
         const initMedia = async () => {
             try {
                 const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
                 if (!isMounted) {
-                    // Component unmounted before we got the stream. Stop it immediately.
                     s.getTracks().forEach(track => track.stop());
                     return;
                 }
-
                 stream = s;
                 setLocalStream(s);
                 localStreamRef.current = s;
@@ -156,18 +180,12 @@ export const MeetingRoom = () => {
 
         return () => {
             isMounted = false;
-            // cleanup local scope stream
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            // cleanup ref stream (just in case)
-            if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => track.stop());
-            }
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            if (localStreamRef.current) localStreamRef.current.getTracks().forEach(track => track.stop());
         };
     }, []);
 
-    // Toggle Camera (Hardware Stop/Start)
+    // Toggle Camera
     const toggleCam = async () => {
         if (!localStream) return;
         const newStatus = !isCamOn;
@@ -176,19 +194,17 @@ export const MeetingRoom = () => {
         const videoTrack = localStream.getVideoTracks()[0];
 
         if (newStatus) {
-            // Turn ON
             if (!videoTrack || videoTrack.readyState === 'ended') {
                 try {
                     const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
                     const newVideoTrack = newStream.getVideoTracks()[0];
 
                     if (videoTrack) {
-                        videoTrack.stop(); // Stop the old hardware track explicitely
+                        videoTrack.stop();
                         localStream.removeTrack(videoTrack);
                     }
                     localStream.addTrack(newVideoTrack);
 
-                    // Update peers
                     Object.values(peersRef.current).forEach((call: any) => {
                         const sender = call.peerConnection.getSenders().find((s: any) => s.track?.kind === 'video');
                         if (sender) sender.replaceTrack(newVideoTrack);
@@ -202,109 +218,55 @@ export const MeetingRoom = () => {
                 videoTrack.enabled = true;
             }
         } else {
-            // Turn OFF - Stop the track completely to turn off light
-            if (videoTrack) {
-                videoTrack.stop();
-            }
+            if (videoTrack) videoTrack.stop();
         }
         socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'cam', value: newStatus }));
     };
 
-    // Toggle Mic (Mute/Unmute)
+    // Toggle Mic
     const toggleMic = () => {
         if (!localStream) return;
         const newStatus = !isMicOn;
         setIsMicOn(newStatus);
-
         localStream.getAudioTracks().forEach(t => t.enabled = newStatus);
         socketRef.current?.send(JSON.stringify({ type: 'device-toggle', kind: 'mic', value: newStatus }));
     };
 
+    // ─────────────────────────────────────────────────────────────
     // WebSocket & PeerJS Setup
+    // ─────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!CONFIG?.SERVER?.WS_URL || !roomId || !localStream) return;
 
-        // Cleanup previous if exists
+        // Cleanup previous instances
         if (peerRef.current) peerRef.current.destroy();
         if (socketRef.current) socketRef.current.close();
 
-        // 1. Setup PeerJS
-        const peer = new Peer(myId);
-        peerRef.current = peer;
+        // ── Helper: call một peer cụ thể ──
+        const callPeer = (targetId: string) => {
+            if (!localStreamRef.current) return;
+            if (peersRef.current[targetId]) return; // Đã call rồi, bỏ qua
 
-        peer.on('open', (id) => {
-            console.log('My peer ID is: ' + id);
-            connectWebSocket();
-        });
-
-        peer.on('call', (call) => {
-            call.answer(localStream);
-            call.on('stream', (remoteStream) => {
-                handleRemoteStream(call.peer, remoteStream);
-            });
-            peersRef.current[call.peer] = call;
-        });
-
-        peer.on('error', (err) => {
-            console.error("PeerJS Error:", err);
-        });
-
-        const connectWebSocket = () => {
-            const baseWsUrl = CONFIG.SERVER.WS_URL.endsWith('/') ? CONFIG.SERVER.WS_URL : `${CONFIG.SERVER.WS_URL}/`;
-            const wsUrl = `${baseWsUrl}${roomId}/${myId}`;
-            const socket = new WebSocket(wsUrl);
-            socketRef.current = socket;
-
-            socket.onopen = () => {
-                setMessages(prev => [...prev, {
-                    sender: 'System', text: t('welcomeMeeting'),
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
-                }]);
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    handleWebSocketMessage(data);
-                } catch (e) { console.error(e); }
-            };
+            console.log(`[PeerJS] Calling ${targetId}`);
+            const call = peerRef.current?.call(targetId, localStreamRef.current!);
+            if (call) {
+                peersRef.current[targetId] = call;
+                call.on('stream', (remoteStream) => {
+                    handleRemoteStream(targetId, remoteStream);
+                });
+                call.on('close', () => {
+                    removeParticipant(targetId);
+                });
+                call.on('error', (err) => {
+                    console.error(`[PeerJS] Call error with ${targetId}:`, err);
+                });
+            }
         };
 
-        const handleWebSocketMessage = (data: any) => {
-            switch (data.type) {
-                case 'user-joined':
-                    if (data.user_id !== myId) {
-                        const call = peerRef.current?.call(data.user_id, localStream);
-                        if (call) {
-                            peersRef.current[data.user_id] = call;
-                            call.on('stream', (remoteStream) => {
-                                handleRemoteStream(data.user_id, remoteStream);
-                            });
-                        }
-                        addParticipant(data.user_id);
-                        setMessages(prev => [...prev, {
-                            sender: 'System', text: `${data.user_id} joined`,
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
-                        }]);
-                    }
-                    break;
-                case 'user-left':
-                    removeParticipant(data.user_id);
-                    setMessages(prev => [...prev, {
-                        sender: 'System', text: `${data.user_id} left`,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
-                    }]);
-                    break;
-                case 'message':
-                    setMessages(prev => [...prev, {
-                        sender: data.user_id, text: data.message,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
-                    }]);
-                    break;
-                case 'device-toggle':
-                    updateParticipantState(data.user_id, data.kind, data.value);
-                    break;
-            }
+        // ── Helper: xử lý stream từ peer ──
+        const handleRemoteStream = (id: string, stream: MediaStream) => {
+            console.log(`[PeerJS] Got stream from ${id}`);
+            addParticipant(id, stream);
         };
 
         const addParticipant = (id: string, stream?: MediaStream) => {
@@ -315,10 +277,6 @@ export const MeetingRoom = () => {
                 }
                 return [...prev, { id, name: id, stream, cam: true, mic: true }];
             });
-        };
-
-        const handleRemoteStream = (id: string, stream: MediaStream) => {
-            addParticipant(id, stream);
         };
 
         const removeParticipant = (id: string) => {
@@ -333,16 +291,151 @@ export const MeetingRoom = () => {
             setParticipants(prev => prev.map(p => p.id === id ? { ...p, [kind]: value } : p));
         };
 
+        // ── 1. Setup PeerJS với STUN servers rõ ràng ──
+        const peer = new Peer(myId, {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                ]
+            },
+            debug: 2 // Log vừa đủ để debug
+        });
+        peerRef.current = peer;
+
+        peer.on('error', (err) => {
+            console.error("[PeerJS] Error:", err);
+        });
+
+        // Nhận cuộc gọi đến từ người khác
+        peer.on('call', (call) => {
+            console.log(`[PeerJS] Incoming call from ${call.peer}`);
+            call.answer(localStreamRef.current!);
+            peersRef.current[call.peer] = call;
+            call.on('stream', (remoteStream) => {
+                handleRemoteStream(call.peer, remoteStream);
+            });
+            call.on('close', () => {
+                removeParticipant(call.peer);
+            });
+        });
+
+        // ── 2. Kết nối WebSocket sau khi PeerJS sẵn sàng ──
+        peer.on('open', (id) => {
+            console.log('[PeerJS] My peer ID:', id);
+            connectWebSocket();
+        });
+
+        const connectWebSocket = () => {
+            const baseWsUrl = CONFIG.SERVER.WS_URL.endsWith('/') ? CONFIG.SERVER.WS_URL : `${CONFIG.SERVER.WS_URL}/`;
+            const wsUrl = `${baseWsUrl}${roomId}/${myId}`;
+            console.log('[WS] Connecting to', wsUrl);
+            const socket = new WebSocket(wsUrl);
+            socketRef.current = socket;
+
+            socket.onopen = () => {
+                setMessages(prev => [...prev, {
+                    sender: 'System', text: t('welcomeMeeting'),
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
+                }]);
+                
+                // Gửi config ngay khi connect
+                socket.send(JSON.stringify({
+                    type: 'config',
+                    translate_mode: translateMode,
+                    src_lang: speechLang === 'vi-VN' ? 'vi' : 'en',
+                    target_lang: speechLang === 'vi-VN' ? 'vi' : 'en'
+                }));
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (e) { console.error('[WS] Parse error:', e); }
+            };
+
+            socket.onerror = (err) => {
+                console.error('[WS] Error:', err);
+            };
+        };
+
+        const handleWebSocketMessage = (data: any) => {
+            console.log('[WS] Received:', data);
+            switch (data.type) {
+
+                // ── Nhận danh sách users đang có trong phòng khi mới join ──
+                case 'room-info': {
+                    const existingUsers: string[] = data.existing_users || [];
+                    existingUsers.forEach((uid) => {
+                        if (uid !== myId) {
+                            addParticipant(uid); // Thêm vào UI trước
+                            // Gọi ngay — họ sẽ trả lời (answer) cuộc gọi
+                            setTimeout(() => callPeer(uid), 500);
+                        }
+                    });
+                    break;
+                }
+
+                // ── Có người mới join phòng ──
+                case 'user-joined':
+                    if (data.user_id !== myId) {
+                        console.log('[WS] user-joined:', data.user_id);
+                        addParticipant(data.user_id);
+                        // KHÔNG gọi ở đây — người mới sẽ nhận room-info và gọi chúng ta
+                        setMessages(prev => [...prev, {
+                            sender: 'System', text: `${data.user_id} joined`,
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
+                        }]);
+                    }
+                    break;
+
+                // ── Có người rời phòng ──
+                case 'user-left':
+                    console.log('[WS] user-left:', data.user_id);
+                    removeParticipant(data.user_id);
+                    setMessages(prev => [...prev, {
+                        sender: 'System', text: `${data.user_id} left`,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
+                    }]);
+                    break;
+
+                // ── Tin nhắn chat ──
+                case 'message':
+                    setMessages(prev => [...prev, {
+                        sender: data.user_id, text: data.message,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: false
+                    }]);
+                    break;
+
+                // ── Nhận bản dịch từ người khác ──
+                case 'translated':
+                    setRemoteCaptions({ text: data.content, sender: data.sender_id, isTranslated: true });
+                    setTimeout(() => setRemoteCaptions(null), 7000);
+                    break;
+                    
+                // ── Nhận text gốc từ người khác (nếu không bật dịch) ──
+                case 'original':
+                    setRemoteCaptions({ text: data.content, sender: data.sender_id, isTranslated: false });
+                    setTimeout(() => setRemoteCaptions(null), 7000);
+                    break;
+
+                // ── Trạng thái mic/cam ──
+                case 'device-toggle':
+                    updateParticipantState(data.user_id, data.kind, data.value);
+                    break;
+            }
+        };
+
         const cleanup = () => {
             socketRef.current?.close();
             peerRef.current?.destroy();
             participantsRef.current.forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
-
-            // Aggressive local stream cleanup
             if (localStreamRef.current) {
                 localStreamRef.current.getTracks().forEach(t => {
-                    t.enabled = false; // Mute first
-                    t.stop(); // Stop hardware
+                    t.enabled = false;
+                    t.stop();
                 });
             }
             stopListening();
@@ -357,22 +450,17 @@ export const MeetingRoom = () => {
     }, [roomId, localStream, stopListening]);
 
     const handleLeave = () => {
-        // Explicitly stop all tracks before navigating
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach(track => {
                 track.enabled = false;
                 track.stop();
             });
         }
-
-        // Also check if there's a loose 'localStream' state that differs
         if (localStream && localStream !== localStreamRef.current) {
             localStream.getTracks().forEach(track => track.stop());
         }
-
         if (socketRef.current) socketRef.current.close();
         if (peerRef.current) peerRef.current.destroy();
-
         navigate('/');
     };
 
@@ -380,7 +468,10 @@ export const MeetingRoom = () => {
         if (!messageInput.trim() || !socketRef.current) return;
         const msg = { type: 'message', message: messageInput };
         socketRef.current.send(JSON.stringify(msg));
-        setMessages(prev => [...prev, { sender: 'You', text: messageInput, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: true }]);
+        setMessages(prev => [...prev, {
+            sender: 'You', text: messageInput,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMe: true
+        }]);
         setMessageInput('');
     };
 
@@ -401,20 +492,29 @@ export const MeetingRoom = () => {
                     </div>
                 </div>
 
-                {/* Live Captions Overlay */}
+                {/* Live Captions Overlay (Local User) */}
                 {showCaptions && transcript && (
-                    <div className="absolute bottom-32 left-0 right-0 z-50 flex justify-center pointer-events-none">
-                        <div className="bg-black/70 backdrop-blur-md px-6 py-4 rounded-2xl max-w-3xl text-center border border-white/10 shadow-2xl animate-in slide-in-from-bottom-5">
-                            <p className="text-lg md:text-xl font-medium text-white leading-relaxed">
-                                {transcript}
-                            </p>
+                    <div className="absolute bottom-40 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                        <div className="bg-black/80 backdrop-blur-md px-6 py-4 rounded-2xl max-w-3xl text-center border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-5">
+                            <p className="text-lg md:text-xl font-medium text-white leading-relaxed">{transcript}</p>
                             <p className="text-[10px] text-zinc-400 mt-2 uppercase tracking-widest">
-                                {t('captions')} • {language === 'en' ? 'English' : 'Tiếng Việt'}
+                                You ({language === 'en' ? 'EN' : 'VI'})
                             </p>
                         </div>
                     </div>
                 )}
 
+                {/* Remote Translated Captions (Người khác nói) */}
+                {showCaptions && remoteCaptions && (
+                    <div className="absolute bottom-40 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                        <div className="bg-blue-900/80 backdrop-blur-md px-6 py-4 rounded-2xl max-w-3xl text-center border border-blue-500/30 shadow-2xl animate-in fade-in slide-in-from-bottom-5">
+                            <p className="text-lg md:text-xl font-medium text-white leading-relaxed">{remoteCaptions.text}</p>
+                            <p className="text-[10px] text-blue-300 mt-2 uppercase tracking-widest flex items-center justify-center gap-1">
+                                {remoteCaptions.sender} {remoteCaptions.isTranslated && <span className="text-yellow-400 text-[9px]">(Translated)</span>}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Video Grid */}
                 <div className="flex-1 p-6 flex items-center justify-center overflow-hidden mt-12 mb-20">
@@ -440,13 +540,23 @@ export const MeetingRoom = () => {
                                 <VideoPlayer
                                     stream={p.stream}
                                     isMirrored={false}
-                                    className={`w-full h-full object-cover ${p.cam ? 'block' : 'hidden'}`}
+                                    className={`w-full h-full object-cover ${p.cam && p.stream ? 'block' : 'hidden'}`}
                                 />
-                                {!p.cam && <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 font-bold text-xl border border-white/5 shadow-2xl rounded-full w-16 h-16 m-auto">{p.name[0]}</div>}
+                                {(!p.cam || !p.stream) && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 font-bold text-xl border border-white/5 shadow-2xl rounded-full w-16 h-16 m-auto">
+                                        {p.name[0]?.toUpperCase()}
+                                    </div>
+                                )}
                                 <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
                                     <span className="text-[11px] font-bold text-zinc-200">{p.name}</span>
                                     {!p.mic && <MicOff className="w-3 h-3 text-red-500" />}
                                 </div>
+                                {/* Loading indicator khi chưa có stream */}
+                                {!p.stream && (
+                                    <div className="absolute top-3 right-3 bg-black/60 px-2 py-1 rounded-lg">
+                                        <span className="text-[10px] text-yellow-400 animate-pulse">Connecting...</span>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -456,15 +566,20 @@ export const MeetingRoom = () => {
                 <div className="absolute bottom-0 left-0 right-0 h-24 flex items-center justify-center px-8 z-30 pointer-events-none">
                     <div className="bg-[#121212]/90 backdrop-blur-3xl border border-white/10 px-8 py-4 rounded-3xl flex items-center gap-6 shadow-2xl mb-4 pointer-events-auto">
                         <div className="flex items-center gap-2">
-                            <button onClick={toggleMic} className={`p-4 rounded-2xl transition-all ${isMicOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isMicOn ? t('mute') : t('unmute')}><Mic className="w-5 h-5" /></button>
-                            <button onClick={toggleCam} className={`p-4 rounded-2xl transition-all ${isCamOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isCamOn ? t('stopVideo') : t('startVideo')}><Video className="w-5 h-5" /></button>
+                            <button onClick={toggleMic} className={`p-4 rounded-2xl transition-all ${isMicOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isMicOn ? t('mute') : t('unmute')}>
+                                {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                            </button>
+                            <button onClick={toggleCam} className={`p-4 rounded-2xl transition-all ${isCamOn ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-red-500 shadow-lg shadow-red-500/20'}`} title={isCamOn ? t('stopVideo') : t('startVideo')}>
+                                {isCamOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                            </button>
                         </div>
                         <div className="w-[1px] h-8 bg-white/10" />
-                        <button onClick={handleLeave} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl transition-all flex items-center gap-3 shadow-lg shadow-red-500/20"><PhoneOff className="w-5 h-5" /><span className="font-bold text-sm uppercase tracking-wider">{t('leave')}</span></button>
+                        <button onClick={handleLeave} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl transition-all flex items-center gap-3 shadow-lg shadow-red-500/20">
+                            <PhoneOff className="w-5 h-5" />
+                            <span className="font-bold text-sm uppercase tracking-wider">{t('leave')}</span>
+                        </button>
                         <div className="w-[1px] h-8 bg-white/10" />
                         <div className="flex items-center gap-2">
-                            {/* Captions Toggle */}
-                            {/* Captions Toggle & Language */}
                             <div className="relative flex items-center">
                                 {showLangMenu && (
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-zinc-900 border border-white/10 rounded-xl p-1 shadow-xl flex flex-col gap-1 w-32 animate-in slide-in-from-bottom-2">
@@ -479,6 +594,14 @@ export const MeetingRoom = () => {
                                             className={`px-3 py-2 text-xs font-bold rounded-lg transition-colors text-left ${speechLang === 'en-US' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
                                         >
                                             English
+                                        </button>
+                                        <div className="h-px bg-white/10 my-1"></div>
+                                        <button
+                                            onClick={() => setTranslateMode(!translateMode)}
+                                            className={`px-3 py-2 text-xs font-bold rounded-lg transition-colors flex justify-between items-center ${translateMode ? 'text-green-400 bg-green-400/10' : 'text-zinc-400 hover:bg-white/5'}`}
+                                        >
+                                            <span>Auto-Translate</span>
+                                            <span className="text-[10px] bg-black/50 px-1.5 rounded">{translateMode ? 'ON' : 'OFF'}</span>
                                         </button>
                                     </div>
                                 )}
@@ -519,9 +642,20 @@ export const MeetingRoom = () => {
                         ))
                     ) : (
                         <div className="space-y-4">
+                            {/* Bản thân */}
+                            <div className="flex items-center gap-4 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs text-white">Y</div>
+                                <div className="flex flex-col flex-1">
+                                    <span className="text-sm font-bold text-zinc-200">You</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        {isMicOn ? <Mic className="w-3 h-3 text-zinc-500" /> : <MicOff className="w-3 h-3 text-red-500" />}
+                                        {isCamOn ? <Video className="w-3 h-3 text-zinc-500" /> : <VideoOff className="w-3 h-3 text-red-500" />}
+                                    </div>
+                                </div>
+                            </div>
                             {participants.map((p) => (
                                 <div key={p.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
-                                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-400 border border-white/10">{p.name[0]}</div>
+                                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-400 border border-white/10">{p.name[0]?.toUpperCase()}</div>
                                     <div className="flex flex-col flex-1">
                                         <span className="text-sm font-bold text-zinc-200">{p.name}</span>
                                         <div className="flex items-center gap-2 mt-1">
@@ -529,6 +663,7 @@ export const MeetingRoom = () => {
                                             {p.cam ? <Video className="w-3 h-3 text-zinc-500" /> : <VideoOff className="w-3 h-3 text-red-500" />}
                                         </div>
                                     </div>
+                                    {!p.stream && <span className="text-[10px] text-yellow-500 animate-pulse">Connecting...</span>}
                                 </div>
                             ))}
                         </div>
@@ -537,8 +672,17 @@ export const MeetingRoom = () => {
                 {activeTab === 'chat' && (
                     <div className="p-6 border-t border-white/5 bg-black/20">
                         <div className="relative group">
-                            <input type="text" value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t('typeMessage')} className="w-full bg-white/5 border border-white/10 rounded-2xl pl-5 pr-14 py-4 text-sm focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder:text-zinc-600" />
-                            <button onClick={handleSendMessage} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2.5 bg-white text-black rounded-xl hover:bg-zinc-200 transition-all active:scale-95 shadow-xl"><Send className="w-4 h-4" /></button>
+                            <input
+                                type="text"
+                                value={messageInput}
+                                onChange={(e) => setMessageInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                placeholder={t('typeMessage')}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-5 pr-14 py-4 text-sm focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder:text-zinc-600"
+                            />
+                            <button onClick={handleSendMessage} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2.5 bg-white text-black rounded-xl hover:bg-zinc-200 transition-all active:scale-95 shadow-xl">
+                                <Send className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
                 )}
